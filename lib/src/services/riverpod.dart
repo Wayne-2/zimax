@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:zimax/src/services/model.dart';
+import 'package:zimax/src/models/userprofile.dart';
 
 
-class UserNotifier extends StateNotifier<UserModel?> {
+class UserNotifier extends StateNotifier<Userprofile?> {
   UserNotifier() : super(null);
 
   // Store user data
-  void setUser(UserModel user) {
+  void setUser(Userprofile user) {
     state = user;
   }
 
@@ -17,6 +17,6 @@ class UserNotifier extends StateNotifier<UserModel?> {
 }
 
 // Global provider
-final userProvider = StateNotifierProvider<UserNotifier, UserModel?>((ref) {
+final userProfileProvider = StateNotifierProvider<UserNotifier, Userprofile?>((ref) {
   return UserNotifier();
 });

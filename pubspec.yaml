@@ -27,6 +27,7 @@ dependencies:
   open_filex: ^4.7.0
   loading_animation_widget:
   flutter_svg: ^2.2.3
+  image_picker:
 
 dev_dependencies:
   flutter_test:

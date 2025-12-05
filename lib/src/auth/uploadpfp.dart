@@ -1,9 +1,90 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:zimax/src/auth/loadingpage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class Uploadpfp extends StatelessWidget {
+class Uploadpfp extends StatefulWidget {
   const Uploadpfp({super.key});
+
+  @override
+  State<Uploadpfp> createState() => _UploadpfpState();
+}
+
+class _UploadpfpState extends State<Uploadpfp> {
+  File? _selectedImage;
+  bool _isUploading = false;
+
+  final ImagePicker _picker = ImagePicker();
+  final supabase = Supabase.instance.client;
+
+  // Pick Image
+  Future<void> pickImage() async {
+    final XFile? file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 75,
+    );
+
+    if (file != null) {
+      setState(() => _selectedImage = File(file.path));
+    }
+  }
+
+  // Upload + update DB
+  Future<void> uploadImage() async {
+    if (_selectedImage == null) {
+      _showAlert("No Image", "Please select an image first.");
+      return;
+    }
+
+    setState(() => _isUploading = true);
+
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    final fileName =
+        "profile/${user.id}/${DateTime.now().millisecondsSinceEpoch}.png";
+
+    try {
+      // Upload file
+      await supabase.storage.from("avatars").upload(
+            fileName,
+            _selectedImage!,
+          );
+
+      // Get public URL
+      final imageUrl =
+          supabase.storage.from("avatars").getPublicUrl(fileName);
+
+      // Update profile table
+      await supabase.from("user_profile").update({
+        "profile_image_url": imageUrl,
+      }).eq("id", user.id);
+
+      _showAlert("Success", "Profile photo updated successfully!");
+
+    } catch (error) {
+      _showAlert("Error", "Failed to upload image: $error");
+    } finally {
+      setState(() => _isUploading = false);
+    }
+  }
+
+  void _showAlert(String title, String msg) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(msg),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          )
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,47 +95,37 @@ class Uploadpfp extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                  SizedBox(height: 20,),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 13,
-                          backgroundColor: Colors.black,
-                          child: Icon(
-                            Icons.arrow_back,
-                            size: 13,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          "back",
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: const Color.fromARGB(255, 18, 18, 18),
-                          ),
-                        ),
-                      ],
+              const SizedBox(height: 20),
+
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 13,
+                      backgroundColor: Colors.black,
+                      child: const Icon(Icons.arrow_back,
+                          color: Colors.white, size: 14),
                     ),
-                  ),
+                    const SizedBox(width: 5),
+                    Text(
+                      "Back",
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               const SizedBox(height: 50),
 
-              // Title
               Center(
                 child: Text(
-                  'Update Profile Photo',
+                  "Update Profile Photo",
                   style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
+                      fontSize: 22, fontWeight: FontWeight.w600),
                 ),
               ),
 
@@ -62,70 +133,74 @@ class Uploadpfp extends StatelessWidget {
 
               // Profile Photo
               Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 130,
-                      height: 130,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey.shade200,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.06),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                child: GestureDetector(
+                  onTap: pickImage,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 135,
+                        height: 135,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey.shade200,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(100),
-                      child: Image.asset(
-                        'assets/nopfp.png',
-                        width: 120,
-                        height: 120,
-                        fit: BoxFit.cover,
+
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(100),
+                        child: _selectedImage == null
+                            ? Image.asset(
+                                "assets/nopfp.png",
+                                width: 120,
+                                height: 120,
+                                fit: BoxFit.cover,
+                              )
+                            : Image.file(
+                                _selectedImage!,
+                                width: 120,
+                                height: 120,
+                                fit: BoxFit.cover,
+                              ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
               const SizedBox(height: 25),
 
-              // Subtle instruction box
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 14, horizontal: 24),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(25),
                     border: Border.all(
-                      color: Theme.of(context).dividerColor.withOpacity(0.4),
+                      color: Theme.of(context)
+                          .dividerColor
+                          .withOpacity(0.4),
                     ),
                   ),
                   child: Text(
                     "Tap to edit profile photo",
                     style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w400,
-                    ),
+                        fontSize: 13, color: Colors.grey.shade700),
                   ),
                 ),
               ),
 
               const Spacer(),
 
-              // Button (clean + minimal)
               GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => Loadingpage()),
-                  );
-                },
+                onTap: _isUploading ? null : uploadImage,
                 child: Container(
                   width: double.infinity,
                   height: 55,
@@ -141,14 +216,17 @@ class Uploadpfp extends StatelessWidget {
                     ],
                   ),
                   child: Center(
-                    child: Text(
-                      'Finish',
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _isUploading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white)
+                        : Text(
+                            'Finish',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ),

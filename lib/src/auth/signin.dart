@@ -4,9 +4,16 @@ import 'package:zimax/src/auth/signup.dart';
 import 'package:zimax/src/components/imaget.dart';
 import 'package:zimax/src/components/inputfield.dart';
 
-class Signin extends StatelessWidget {
+class Signin extends StatefulWidget {
   const Signin({super.key});
 
+  @override
+  State<Signin> createState() => _SigninState();
+}
+
+class _SigninState extends State<Signin> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,9 +47,9 @@ class Signin extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 20),
-              InputField(obscureText: false, hintText: 'Email'),
+              InputField(obscureText: false, hintText: 'Email', controller: _emailController,),
               SizedBox(height: 10),
-              InputField(obscureText: true, hintText: 'Password'),
+              InputField(obscureText: true, hintText: 'Password', controller: _passwordController,),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Row(

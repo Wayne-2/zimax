@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 class InputField extends StatelessWidget {
   final bool obscureText;
   final String hintText;
+  final TextEditingController controller;
   const InputField({
     super.key,
     required this.obscureText,
     required this.hintText,
+    required this.controller,
   });
 
   @override
@@ -16,7 +18,7 @@ class InputField extends StatelessWidget {
       elevation: 0,
       borderRadius: BorderRadius.circular(14),
       child: TextFormField(
-        // controller: controller,
+        controller: controller,
         // keyboardType: keyboardType,
         obscureText: obscureText,
         cursorHeight: 20,
@@ -58,11 +60,7 @@ class Dropdown extends StatefulWidget {
   final String hint;
   final List<String> items;
 
-  const Dropdown({
-    super.key,
-    required this.hint,
-    required this.items,
-  });
+  const Dropdown({super.key, required this.hint, required this.items});
 
   @override
   State<Dropdown> createState() => _DropdownState();
@@ -90,16 +88,14 @@ class _DropdownState extends State<Dropdown> {
           child: DropdownButton<String>(
             value: selectedValue,
             hint: Text(widget.hint),
-            style: GoogleFonts.poppins(fontSize: 13, color: const Color.fromARGB(239, 0, 0, 0)),
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: const Color.fromARGB(239, 0, 0, 0),
+            ),
             isExpanded: true,
             borderRadius: BorderRadius.circular(14),
             items: widget.items
-                .map(
-                  (item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(item),
-                  ),
-                )
+                .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                 .toList(),
             onChanged: (value) {
               setState(() {
