@@ -66,6 +66,12 @@ flutter:
     - assets/icons/search.svg
     - assets/icons/space-fill.svg
     - assets/icons/space.svg
+    - assets/activicon/activity.svg
+    - assets/activicon/bookmark.svg
+    - assets/activicon/comment.svg
+    - assets/activicon/like.svg
+    - assets/activicon/repost.svg
+    - assets/activicon/share.svg
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
