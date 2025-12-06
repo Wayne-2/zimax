@@ -28,6 +28,8 @@ dependencies:
   loading_animation_widget:
   flutter_svg: ^2.2.3
   image_picker:
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +58,7 @@ flutter:
     - assets/images/img4.png
     - assets/images/img5.png
     - assets/images/img6.png
+    - assets/icons/more.svg
     - assets/icons/chat-fill.svg
     - assets/icons/chat.svg
     - assets/icons/home-fill.svg

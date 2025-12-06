@@ -1,5 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:zimax/src/components/svgicon.dart';
 
 class PostCard extends StatelessWidget {
@@ -85,13 +87,35 @@ class PostCard extends StatelessWidget {
       
             const SizedBox(height: 4),
 
-             if (imageUrl != null) ...[
+            if (imageUrl != null) ...[
               const SizedBox(height: 10),
+            
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
-                child: Image.network(imageUrl!),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl!,
+                  fit: BoxFit.cover,
+            
+                  placeholder: (context, url) => Shimmer.fromColors(
+                    baseColor: Colors.grey.shade300,
+                    highlightColor: Colors.grey.shade100,
+                    child: Container(
+                      height: 200,
+                      width: double.infinity,
+                      color: Colors.white,
+                    ),
+                  ),
+            
+                  errorWidget: (context, url, error) => Container(
+                    height: 200,
+                    width: double.infinity,
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.error, color: Colors.red),
+                  ),
+                ),
               ),
             ],
+
 
             const SizedBox(height: 10),
 
@@ -112,7 +136,7 @@ class PostCard extends StatelessWidget {
                 _ActivIcon('assets/activicon/bookmark.svg', ""),
                 _ActivIcon('assets/activicon/share.svg', ""),
               ],
-            )
+            ),
           ],
         ),
       ),

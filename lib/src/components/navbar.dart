@@ -42,7 +42,7 @@ class _MainNavState extends State<NavBar> {
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
         selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.black,
+        unselectedItemColor: const Color.fromARGB(234, 0, 0, 0),
         selectedLabelStyle: GoogleFonts.poppins( fontWeight: FontWeight.w600,),
         unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500,),
         type: BottomNavigationBarType.fixed,
