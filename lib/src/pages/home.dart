@@ -19,15 +19,13 @@ class Home extends ConsumerStatefulWidget {
 class _HomeState extends ConsumerState<Home> {
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userProfileProvider);
+        final user = ref.watch(userProfileProvider);
+        // final username = user!.fullname;
+        // final status = user.status;
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        elevation: 0,
-        leading: GestureDetector(
-          onTap: () => Scaffold.of(context).openDrawer(),
-          child: Icon(Icons.density_medium_rounded)),
-        automaticallyImplyLeading: false,
+        elevation: 2,
         backgroundColor: Colors.white,
         title: Text(
           'Zimax',
@@ -118,3 +116,18 @@ class _HomeState extends ConsumerState<Home> {
     );
   }
 }
+
+// Icon _getStatusIcon(String status) {
+//   switch (status) {
+//     case "Student":
+//       return const Icon(Icons.school, size: 18, color: Color.fromARGB(255, 0, 0, 254));
+//     case "Academic Staff":
+//       return const Icon(Icons.star, size: 18, color: Color.fromARGB(255, 255, 208, 0));
+//     case "Non-Academic Staff":
+//       return const Icon(Icons.work, size: 18, color: Color.fromARGB(255, 255, 0, 0));
+//     case "Admin":
+//       return const Icon(Icons.verified, size: 18, color: Color.fromARGB(255, 2, 145, 19));
+//     default:
+//       return const Icon(Icons.person, size: 18, color: Colors.grey);
+//   }
+// }
