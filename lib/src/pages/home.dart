@@ -1,22 +1,32 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:zimax/src/components/appdrawer.dart';
 import 'package:zimax/src/components/post_card.dart';
+// import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/components/videotiles.dart';
+import 'package:zimax/src/services/riverpod.dart';
 
-class Home extends StatefulWidget {
+class Home extends ConsumerStatefulWidget {
   const Home({super.key});
 
   @override
-  State<Home> createState() => _HomeState();
+  ConsumerState<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends ConsumerState<Home> {
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(userProfileProvider);
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         elevation: 0,
-        leading: Icon(Icons.menu_open_outlined),
+        leading: GestureDetector(
+          onTap: () => Scaffold.of(context).openDrawer(),
+          child: Icon(Icons.density_medium_rounded)),
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         title: Text(
@@ -27,18 +37,45 @@ class _HomeState extends State<Home> {
           ),
         ),
         actions: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
-              image: DecorationImage(
-                image: NetworkImage("https://i.pravatar.cc/300"),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: CachedNetworkImage(
+              imageUrl: user!.pfp,
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+          
+              placeholder: (context, url) => Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+              ),
+          
+              errorWidget: (context, url, error) => Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  color: Colors.grey.shade200,
+                ),
+                child: const Icon(
+                  Icons.person,
+                  color: Colors.grey,
+                  size: 16,
+                ),
               ),
             ),
           ),
-          SizedBox(width: 15),
+          const SizedBox(width: 15),
         ],
+
       ),
       backgroundColor: Colors.white,
 
@@ -65,9 +102,9 @@ class _HomeState extends State<Home> {
                     "https://picsum.photos/401/600",
                     "https://picsum.photos/402/600",
                     "https://picsum.photos/403/600",
-                    "https://picsum.photos/403/600",
-                    "https://picsum.photos/403/600",
-                    "https://picsum.photos/403/600",
+                    "https://picsum.photos/404/600",
+                    "https://picsum.photos/405/600",
+                    "https://picsum.photos/406/600",
                   ],
                 ),
                 SizedBox(height: 10),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,151 +40,162 @@ class _RelativeschoolinfoState extends State<Relativeschoolinfo> {
   final supabase = Supabase.instance.client;
   final profileService = UserProfileService();
 
-  Future<void> _saveProfile() async {
-    if (_departmentController.text.isEmpty ||
-        _regNumberController.text.isEmpty ||
-        selectedLevelValue == null ||
-        selectedStatusValue == null) {
-      _showAlertDialog(
-        context,
-        title: "Missing Information",
-        message: "Please fill in all fields before continuing.",
-      );
+Future<void> _saveProfile() async {
+  if (_departmentController.text.isEmpty ||
+      _regNumberController.text.isEmpty ||
+      selectedLevelValue == null ||
+      selectedStatusValue == null) {
+    _showAlertDialog(
+      context,
+      title: "Missing Information",
+      message: "Please fill in all fields before continuing.",
+    );
+    return;
+  }
+
+  setState(() => _isLoading = true);
+
+  try {
+    // Create account
+    final response = await supabase.auth.signUp(
+      email: widget.email.trim(),
+      password: widget.password.trim(),
+      data: {'fullname': widget.fullname.trim()},
+    );
+
+    // Auto sign in
+    await supabase.auth.signInWithPassword(
+      email: widget.email.trim(),
+      password: widget.password.trim(),
+    );
+
+    if (selectedLevelValue == null || selectedStatusValue == null) {
+      print("Please select level and status");
       return;
     }
 
-    setState(() => _isLoading = true);
+    final user = response.user;
 
-    try {
-      final response = await supabase.auth.signUp(
-        email: widget.email.trim(),
-        password: widget.password.trim(),
-        data: {'fullname': widget.fullname.trim()},
+    if (user != null) {
+      const String noimg =
+          'https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/avatar/profile/aaa466ec-c0c3-48f6-9f30-e6110fbf4e4d/nopfp.png';
+
+      final profile = Userprofile(
+        id: user.id,
+        fullname: widget.fullname,
+        email: widget.email,
+        department: _departmentController.text.trim(),
+        level: selectedLevelValue!,
+        idNumber: _regNumberController.text.trim(),
+        status: selectedStatusValue!,
+        pfp: noimg,
       );
 
-      await supabase.auth.signInWithPassword(
-        email: widget.email.trim(),
-        password: widget.password.trim(),
-      );
+      await profileService.createProfile(profile);
 
-      if (selectedLevelValue == null || selectedStatusValue == null) {
-        print("Please select level and status");
-        return;
-      }
-      final user = response.user;
+      ProviderScope.containerOf(context)
+          .read(userProfileProvider.notifier)
+          .setUser(profile);
+    }
 
-      if (user != null) {
-        final String noimg =
-            'https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/avatar/profile/aaa466ec-c0c3-48f6-9f30-e6110fbf4e4d/nopfp.png';
-        final profile = Userprofile(
-          id: user.id,
-          fullname: widget.fullname,
-          email: widget.email,
-          department: _departmentController.text.trim(),
-          level: selectedLevelValue!,
-          idNumber: _regNumberController.text.trim(),
-          status: selectedStatusValue!,
-          pfp: noimg,
+    _showAlertDialog(
+      context,
+      title: "Success",
+      message: "Your school information has been saved successfully!",
+      confirmText: "Continue",
+      onConfirm: () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Uploadpfp()),
         );
+      },
+    );
+  } catch (e) {
+    final message = parseFriendlyError(e);
+    _showAlertDialog(
+      context,
+      title: "Error",
+      message: message,
+    );
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
 
-        await profileService.createProfile(profile);
-
-        // Store locally in Riverpod
-        final container = ProviderScope.containerOf(context);
-        container.read(userProfileProvider.notifier).setUser(profile);
-      }
-      // Show success modal
-      _showAlertDialog(
-        context,
-        title: "Success",
-        message: "Your school information has been saved successfully!",
-        confirmText: "Continue",
-        onConfirm: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const Uploadpfp()),
-          );
-        },
-      );
-    } on AuthException catch (e) {
-      print(e);
-      _showAlertDialog(
-        context,
-        title: "Error",
-        message: e.message,
-        onConfirm: () {
-          print("User tapped Allow");
-        },
-      );
-    } on PostgrestException catch (e) {
-      print(e);
-      _showAlertDialog(
-        context,
-        title: "Error",
-        message: "Database error: ${e.message}",
-        onConfirm: () {
-          print("User tapped Allow");
-        },
-      );
-    } catch (e) {
-      print(e);
-      _showAlertDialog(
-        context,
-        title: "Error",
-        message: "Unexpected error: $e",
-        onConfirm: () {
-          print("User tapped Allow");
-        },
-      );
-    } finally {
-      setState(() => _isLoading = false);
+String parseFriendlyError(dynamic error) {
+  if (error is AuthException) {
+    switch (error.code) {
+      case 'user_already_exists':
+        return "This email is already registered.";
+      case 'invalid_email':
+        return "Please enter a valid email address.";
+      case 'weak_password':
+        return "Your password is too weak. Try a stronger one.";
+      case 'invalid_credentials':
+        return "Incorrect email or password.";
+      default:
+        return error.message;
     }
   }
 
-  void _showAlertDialog(
-    BuildContext context, {
-    required String title,
-    required String message,
-    String cancelText = "OK",
-    String? confirmText,
-    VoidCallback? onConfirm,
-  }) {
-    showCupertinoDialog(
-      context: context,
-      builder: (_) => CupertinoAlertDialog(
-        title: Text(
-          title,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 18),
-        ),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: Text(
-            message,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: Colors.black,
-            ),
-          ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(cancelText),
-            onPressed: () => Navigator.pop(context),
-          ),
-          if (confirmText != null)
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              child: Text(confirmText),
-              onPressed: () {
-                Navigator.pop(context);
-                if (onConfirm != null) onConfirm();
-              },
-            ),
-        ],
-      ),
-    );
+  if (error is PostgrestException) {
+    return "A database error occurred. Please try again.";
   }
+
+  if (error is SocketException) {
+    return "No internet connection. Check your network and try again.";
+  }
+
+  return "Something went wrong. Please try again.";
+}
+void _showAlertDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String cancelText = "OK",
+  String? confirmText,
+  VoidCallback? onConfirm,
+}) {
+  showCupertinoDialog(
+    context: context,
+    builder: (_) => CupertinoAlertDialog(
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontWeight: FontWeight.w600,
+          fontSize: 18,
+        ),
+      ),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: Text(
+          message,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Colors.black87,
+          ),
+        ),
+      ),
+      actions: [
+        CupertinoDialogAction(
+          child: Text(cancelText),
+          onPressed: () => Navigator.pop(context),
+        ),
+        if (confirmText != null)
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: Text(confirmText),
+            onPressed: () {
+              Navigator.pop(context);
+              if (onConfirm != null) onConfirm();
+            },
+          ),
+      ],
+    ),
+  );
+}
+
 
   final List<String> levels = [
     "100 level",

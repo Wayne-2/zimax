@@ -1,5 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 
 class VideoTileRow extends StatelessWidget {
   final List<String> videoThumbnails;
@@ -19,7 +21,7 @@ class VideoTileRow extends StatelessWidget {
           child: Text('Zimax Trending', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),),
         ),
         SizedBox(
-          height: 180, // height of each video tile
+          height: 180, 
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: videoThumbnails.length,
@@ -33,18 +35,33 @@ class VideoTileRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   child: Stack(
                     children: [
-                      // Thumbnail image
-                      AspectRatio(
-                        aspectRatio: 10 / 16, // Reels-style vertical tile
-                        child: Image.network(
-                          thumb,
+                                         
+                    AspectRatio(
+                      aspectRatio: 10 / 16, 
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: thumb,
                           fit: BoxFit.cover,
-                          width: 110,
-                          height: double.infinity,
+
+
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey.shade300,
+                            highlightColor: Colors.grey.shade100,
+                            child: Container(
+                              color: Colors.white,
+                            ),
+                          ),
+
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.error, color: Colors.red),
+                          ),
                         ),
                       ),
+                    ),
+
                         
-                      // Play Icon Overlay
                       Positioned.fill(
                         child: Container(
                           padding: EdgeInsets.all(8),

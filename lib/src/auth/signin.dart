@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,112 +30,125 @@ class _SigninState extends ConsumerState<Signin> {
   final supabase = Supabase.instance.client;
   final profileService = UserProfileService();
 
-  void login() async {
-    setState(() => _isLoading = true);
+void login() async {
+  setState(() => _isLoading = true);
 
-    try {
-      final response = await AuthService().login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+  try {
+    final response = await AuthService().login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
 
-      final user = response.user;
-      if (user == null) {
-        _showAlertDialog(
-          context,
-          title: "Error",
-          message: "Invalid credentials",
-        );
-        return;
-      }
-
-      // Fetch user profile
-      final profileResponse = await supabase
-          .from('user_profile')
-          .select()
-          .eq('id', user.id)
-          .maybeSingle();
-
-      if (profileResponse == null) {
-        _showAlertDialog(
-          context,
-          title: "Error",
-          message: "Profile not found",
-        );
-        return;
-      }
-
-      final profile = Userprofile.fromJson(profileResponse);
-
-      (ref.read(userProfileProvider.notifier) as dynamic).state = profile;
-
-
-      // Success Alert
-      _showAlertDialog(
-        context,
-        title: "Success",
-        message: "Signed in successfully!",
-        confirmText: "Continue",
-        onConfirm: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => Loadingpage()),
-          );
-        },
-      );
-    } catch (e) {
-      _showAlertDialog(
-        context,
-        title: "Error",
-        message: "Unexpected error: $e",
-      );
-    } finally {
-      setState(() => _isLoading = false);
+    final user = response.user;
+    if (user == null) {
+      return _showError("Invalid email or password.");
     }
-  }
 
-  void _showAlertDialog(
-    BuildContext context, {
-    required String title,
-    required String message,
-    String cancelText = "Cancel",
-    String confirmText = "OK",
-    VoidCallback? onConfirm,
-  }) {
-    showCupertinoDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return CupertinoAlertDialog(
-          title: Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text(
-              message,
-              style: const TextStyle(fontSize: 15, height: 1.3),
-            ),
-          ),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: Text(cancelText),
-            ),
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () {
-                Navigator.pop(context);
-                if (onConfirm != null) onConfirm();
-              },
-              child: Text(confirmText),
-            ),
-          ],
+    // Fetch user profile
+    final profileResponse = await supabase
+        .from('user_profile')
+        .select()
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (profileResponse == null) {
+      return _showError("We couldn't load your profile. Please try again.");
+    }
+
+    final profile = Userprofile.fromJson(profileResponse);
+    (ref.read(userProfileProvider.notifier) as dynamic).state = profile;
+
+    // Success popup
+    _showAlertDialog(
+      title: "Welcome back",
+      message: "You're now signed in.",
+      confirmText: "Continue",
+      onConfirm: () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Loadingpage()),
         );
       },
     );
+
+  } on AuthApiException catch (e) {
+    // Supabase Auth-specific errors
+    if (e.message.contains("Invalid login credentials")) {
+      _showError("Incorrect email or password.");
+    } else if (e.message.contains("Email not confirmed")) {
+      _showError("Please verify your email before signing in.");
+    } else {
+      _showError("Unable to sign in. Please try again.");
+    }
+
+  } on PostgrestException {
+    // Database-related errors
+    _showError("A server error occurred. Please try again shortly.");
+
+  } on SocketException {
+    // No internet
+    _showError("No internet connection. Check your network and try again.");
+
+  } catch (e) {
+    // Fallback error
+    _showError("Something went wrong. Please try again.");
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
+
+void _showError(String message) {
+  _showAlertDialog(
+    title: "Oops!",
+    message: message,
+    confirmText: "OK",
+  );
+}
+
+void _showAlertDialog({
+  required String title,
+  required String message,
+  String confirmText = "OK",
+  VoidCallback? onConfirm,
+}) {
+  showCupertinoDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (context) {
+      return CupertinoAlertDialog(
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Text(
+            message,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.3,
+            ),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () {
+              Navigator.pop(context);
+              if (onConfirm != null) onConfirm();
+            },
+            child: Text(confirmText),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+
 
   @override
   Widget build(BuildContext context) {
