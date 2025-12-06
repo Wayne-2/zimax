@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:zimax/src/appbar/tabcontent.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
 class Profilepage extends ConsumerStatefulWidget {
@@ -119,6 +120,20 @@ class _ProfilepageState extends ConsumerState<Profilepage> {
                   ),
                 ),
               ),
+
+            Positioned(
+                bottom: -55,
+                right: 20,
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 8, horizontal: 25),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: const Color.fromARGB(241, 0, 0, 0)
+                  ),
+                  child: Text('Edit', style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w400),),
+                ) 
+             )
+
             ],
           ),
 
@@ -183,9 +198,51 @@ class _ProfilepageState extends ConsumerState<Profilepage> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 5),
               ],
             ),
           ),
+          Expanded(
+            child: DefaultTabController(
+              length: 4,
+              child: Column(
+                children: [
+                  TabBar(
+                    indicatorColor: Colors.black,
+                    labelColor: Colors.black,
+                    unselectedLabelColor: Colors.grey,
+                    labelStyle: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    unselectedLabelStyle: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    tabs: const [
+                      Tab(text: "Posts"),
+                      Tab(text: "Comments"),
+                      Tab(text: "Media"),
+                      Tab(text: "Bookmarked"),
+                    ],
+                  ),
+          
+                  /// THIS EXPANDED MAKES TABBARVIEW FILL REMAINING SPACE
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        PostsTab(),
+                        CommentsTab(),
+                        MediaTab(),
+                        BookmarkedTab(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+
         ],
       ),
     );
@@ -222,3 +279,5 @@ Icon _getStatusIcon(String status) {
       return const Icon(Icons.person, size: 18, color: Colors.grey);
   }
 }
+
+

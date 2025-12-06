@@ -36,16 +36,43 @@ class PostCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                     Container(
-                       width:33,
-                       height:33,
-                       decoration:BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                         image: DecorationImage(
-                           image: NetworkImage(
-                                   "https://i.pravatar.cc/300",
-                                 ),))),
-                      
+                    ClipRRect(
+                     borderRadius: BorderRadius.circular(35),
+                     child: CachedNetworkImage(
+                       imageUrl: "https://i.pravatar.cc/300",
+                       width: 35,
+                       height: 35,
+                       fit: BoxFit.cover,
+
+                       placeholder: (context, url) => Shimmer.fromColors(
+                         baseColor: Colors.grey.shade300,
+                         highlightColor: Colors.grey.shade100,
+                         child: Container(
+                           width: 35,
+                           height: 35,
+                           decoration: BoxDecoration(
+                             color: Colors.white,
+                             borderRadius: BorderRadius.circular(35),
+                           ),
+                         ),
+                       ),
+
+                       errorWidget: (context, url, error) => Container(
+                         width: 30,
+                         height: 30,
+                         decoration: BoxDecoration(
+                           borderRadius: BorderRadius.circular(15),
+                           color: Colors.grey.shade200,
+                         ),
+                         child: const Icon(
+                           Icons.person,
+                           color: Colors.grey,
+                           size: 16,
+                         ),
+                       ),
+                     ),
+                   ),
+
                     const SizedBox(width: 10),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,14 +127,14 @@ class PostCard extends StatelessWidget {
                     baseColor: Colors.grey.shade300,
                     highlightColor: Colors.grey.shade100,
                     child: Container(
-                      height: 200,
+                      height: 300,
                       width: double.infinity,
                       color: Colors.white,
                     ),
                   ),
             
                   errorWidget: (context, url, error) => Container(
-                    height: 200,
+                    height: 300,
                     width: double.infinity,
                     color: Colors.grey.shade200,
                     child: const Icon(Icons.error, color: Colors.red),
