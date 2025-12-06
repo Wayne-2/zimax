@@ -3,26 +3,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/auth/signin.dart';
 
-void main() async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
     url: 'https://kldaeoljhumowuegwjyq.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsZGFlb2xqaHVtb3d1ZWd3anlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4OTY2MjAsImV4cCI6MjA4MDQ3MjYyMH0.OrqMl6ejtoa8m41Y1MWJm1oAz3S3iKc0UXlW07qyG3A',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsZGFlb2xqaHVtb3d1ZWd3anlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4OTY2MjAsImV4cCI6MjA4MDQ3MjYyMH0.OrqMl6ejtoa8m41Y1MWJm1oAz3S3iKc0UXlW07qyG3A',
   );
 
-  runApp(const ProviderScope(
-    child: MaterialApp(
-      debugShowCheckedModeBanner: false, 
-      home: Zimax()),
-  ));
+  runApp(
+    const ProviderScope(
+      child: MaterialApp(debugShowCheckedModeBanner: false, home: Zimax()),
+    ),
+  );
 }
 
-class Zimax extends StatelessWidget {
+class Zimax extends StatefulWidget {
   const Zimax({super.key});
+
+  @override
+  State<Zimax> createState() => _ZimaxState();
+}
+
+class _ZimaxState extends State<Zimax> {
+  @override
+  void initState() {
+    super.initState();
+
+    // Wait 5 seconds then navigate
+    Future.delayed(const Duration(seconds: 6), () {
+      if (mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => Signin()));
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +51,8 @@ class Zimax extends StatelessWidget {
         statusBarIconBrightness: Brightness.dark,
       ),
     );
+
+
 
     final size = MediaQuery.of(context).size;
 
@@ -110,27 +131,13 @@ class Zimax extends StatelessWidget {
                     ),
                     SizedBox(height: 15),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => Signin()),
-                        );
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(50),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Get Started',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                      onTap: () {},
+                      child: SizedBox(
+                        height: 35,
+                        width: 35,
+                        child: LoadingAnimationWidget.threeArchedCircle(
+                          color: const Color.fromARGB(255, 255, 255, 255),
+                          size: 35,
                         ),
                       ),
                     ),

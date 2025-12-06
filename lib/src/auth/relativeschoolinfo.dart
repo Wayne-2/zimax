@@ -59,7 +59,7 @@ class _RelativeschoolinfoState extends State<Relativeschoolinfo> {
         password: widget.password.trim(),
         data: {'fullname': widget.fullname.trim()},
       );
-      
+
       await supabase.auth.signInWithPassword(
         email: widget.email.trim(),
         password: widget.password.trim(),
@@ -72,6 +72,8 @@ class _RelativeschoolinfoState extends State<Relativeschoolinfo> {
       final user = response.user;
 
       if (user != null) {
+        final String noimg =
+            'https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/avatar/profile/aaa466ec-c0c3-48f6-9f30-e6110fbf4e4d/nopfp.png';
         final profile = Userprofile(
           id: user.id,
           fullname: widget.fullname,
@@ -80,6 +82,7 @@ class _RelativeschoolinfoState extends State<Relativeschoolinfo> {
           level: selectedLevelValue!,
           idNumber: _regNumberController.text.trim(),
           status: selectedStatusValue!,
+          pfp: noimg,
         );
 
         await profileService.createProfile(profile);
@@ -149,11 +152,18 @@ class _RelativeschoolinfoState extends State<Relativeschoolinfo> {
       builder: (_) => CupertinoAlertDialog(
         title: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 18),
         ),
         content: Padding(
           padding: const EdgeInsets.only(top: 8.0),
-          child: Text(message),
+          child: Text(
+            message,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: Colors.black,
+            ),
+          ),
         ),
         actions: [
           CupertinoDialogAction(

@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zimax/src/auth/loadingpage.dart';
 
 class Uploadpfp extends StatefulWidget {
   const Uploadpfp({super.key});
@@ -47,22 +49,18 @@ class _UploadpfpState extends State<Uploadpfp> {
 
     try {
       // Upload file
-      await supabase.storage.from("avatars").upload(
-            fileName,
-            _selectedImage!,
-          );
+      await supabase.storage.from("avatar").upload(fileName, _selectedImage!);
 
       // Get public URL
-      final imageUrl =
-          supabase.storage.from("avatars").getPublicUrl(fileName);
+      final imageUrl = supabase.storage.from("avatar").getPublicUrl(fileName);
 
       // Update profile table
-      await supabase.from("user_profile").update({
-        "profile_image_url": imageUrl,
-      }).eq("id", user.id);
+      await supabase
+          .from("user_profile")
+          .update({"profile_image_url": imageUrl})
+          .eq("id", user.id);
 
-      _showAlert("Success", "Profile photo updated successfully!");
-
+      _showSuccessInfo("Success", "Profile photo updated successfully!");
     } catch (error) {
       _showAlert("Error", "Failed to upload image: $error");
     } finally {
@@ -74,13 +72,77 @@ class _UploadpfpState extends State<Uploadpfp> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(msg),
+        title: Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: const Color.fromARGB(255, 0, 0, 0),
+          ),
+        ),
+        content: Text(
+          msg,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color.fromARGB(255, 0, 0, 0),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
-          )
+            child: Text(
+              "OK",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessInfo(String title, String msg) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: const Color.fromARGB(255, 0, 0, 0),
+          ),
+        ),
+        content: Text(
+          msg,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color.fromARGB(255, 0, 0, 0),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const Loadingpage()),
+              );
+            },
+
+            child: Text(
+              "OK",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -104,8 +166,11 @@ class _UploadpfpState extends State<Uploadpfp> {
                     CircleAvatar(
                       radius: 13,
                       backgroundColor: Colors.black,
-                      child: const Icon(Icons.arrow_back,
-                          color: Colors.white, size: 14),
+                      child: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                     ),
                     const SizedBox(width: 5),
                     Text(
@@ -125,7 +190,9 @@ class _UploadpfpState extends State<Uploadpfp> {
                 child: Text(
                   "Update Profile Photo",
                   style: GoogleFonts.poppins(
-                      fontSize: 22, fontWeight: FontWeight.w600),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
 
@@ -180,19 +247,21 @@ class _UploadpfpState extends State<Uploadpfp> {
               Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      vertical: 14, horizontal: 24),
+                    vertical: 14,
+                    horizontal: 24,
+                  ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(25),
                     border: Border.all(
-                      color: Theme.of(context)
-                          .dividerColor
-                          .withOpacity(0.4),
+                      color: Theme.of(context).dividerColor.withOpacity(0.4),
                     ),
                   ),
                   child: Text(
                     "Tap to edit profile photo",
                     style: GoogleFonts.poppins(
-                        fontSize: 13, color: Colors.grey.shade700),
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                    ),
                   ),
                 ),
               ),
@@ -212,13 +281,19 @@ class _UploadpfpState extends State<Uploadpfp> {
                         color: Colors.black.withOpacity(0.15),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
-                      )
+                      ),
                     ],
                   ),
                   child: Center(
                     child: _isUploading
-                        ? const CircularProgressIndicator(
-                            color: Colors.white)
+                        ? SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: LoadingAnimationWidget.staggeredDotsWave(
+                              color: const Color.fromARGB(255, 255, 255, 255),
+                              size: 30,
+                            ),
+                          )
                         : Text(
                             'Finish',
                             style: GoogleFonts.poppins(
