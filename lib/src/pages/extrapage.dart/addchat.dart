@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddChatPage extends StatefulWidget {
@@ -101,7 +102,24 @@ class _NewChatPageState extends State<AddChatPage> {
               stream: getUsersStream(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return ListView.builder(
+                    itemCount: 5,
+                    padding: const EdgeInsets.only(top: 10),
+                    itemBuilder: (context, index) => shimmerTile(),
+                  );
+                }
+
+                if (!snapshot.hasData || snapshot.data == null) {
+                  return Center(
+                    child: Text(
+                      "No users yet",
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
                 }
 
                 final users = snapshot.data!;
@@ -118,6 +136,19 @@ class _NewChatPageState extends State<AddChatPage> {
 
                   return name.contains(q) || email.contains(q);
                 }).toList();
+
+                    if (filtered.isEmpty) {
+                      return Center(
+                        child: Text(
+                          "No users yet",
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.black54,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      );
+                    }
 
                 return ListView.builder(
                   itemCount: filtered.length,
@@ -218,4 +249,57 @@ Icon _getStatusIcon(String status) {
     default:
       return const Icon(Icons.person, size: 18, color: Colors.grey);
   }
+}
+
+Widget shimmerTile() {
+  return Shimmer.fromColors(
+    baseColor: Colors.grey.shade300,
+    highlightColor: Colors.grey.shade100,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          // Avatar shimmer
+          Container(
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Name + subtitle shimmer
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title shimmer
+                Container(
+                  width: 160,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Subtitle shimmer
+                Container(
+                  width: 120,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
