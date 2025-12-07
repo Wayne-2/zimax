@@ -66,6 +66,7 @@ flutter:
     - assets/appbaricon/settings.svg
     - assets/appbaricon/logout.svg
     - assets/icons/more.svg
+    - assets/icons/newchat.svg
     - assets/icons/chat-fill.svg
     - assets/icons/chat.svg
     - assets/icons/home-fill.svg
