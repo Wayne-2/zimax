@@ -1,7 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
+// import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:zimax/src/components/svgicon.dart';
 
@@ -35,7 +35,7 @@ class PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-   final readableDate = DateFormat("d MMM yyyy").format(createdAt);
+   final readableDate = timeAgo(createdAt);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
@@ -215,6 +215,22 @@ class PostCard extends StatelessWidget {
         return const Icon(Icons.person, size: 18, color: Colors.grey);
     }
   }
+String timeAgo(DateTime createdAt) {
+  final now = DateTime.now();
+  final diff = now.difference(createdAt);
+
+  if (diff.inSeconds < 60) {
+    return "just now";
+  } else if (diff.inMinutes < 60) {
+    return "${diff.inMinutes} min ago";
+  } else if (diff.inHours < 24) {
+    return "${diff.inHours} hr ago";
+  } else if (diff.inDays == 1) {
+    return "Yesterday";
+  } else {
+    return "${diff.inDays} days ago";
+  }
+}
 
 class _ActivIcon extends StatelessWidget {
   final String icon;

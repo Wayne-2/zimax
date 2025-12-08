@@ -19,7 +19,6 @@ class Chat extends ConsumerStatefulWidget {
 class _ChatState extends ConsumerState<Chat>
     with TickerProviderStateMixin {
 
-// ---- in your state class (keep existing fields for controllers/animations) ----
 
 late AnimationController _introController;
 late AnimationController _pulseController;
@@ -33,7 +32,6 @@ late Animation<double> pulse;
 void initState() {
   super.initState();
 
-  // INTRO ANIMATION (bounce + fade + slide)
   _introController = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
@@ -52,8 +50,6 @@ void initState() {
     CurvedAnimation(parent: _introController, curve: Curves.elasticOut),
   );
 
-  // PULSE ANIMATION (idle breathing effect)
-  // Use a Tween mapped from the controller's 0..1 to the desired scale 0.97..1.03
   _pulseController = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 2),
@@ -63,10 +59,8 @@ void initState() {
     CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
   );
 
-  // Start intro
   _introController.forward();
 
-  // When intro completes, start the infinite pulse
   _introController.addStatusListener((status) {
     if (status == AnimationStatus.completed) {
       // start looping pulse (reverse: true for gentle breath)
@@ -171,6 +165,7 @@ void dispose() {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10.0),
             child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0),
             height: 40,
             decoration: BoxDecoration(
               color: const Color.fromARGB(255, 226, 226, 226),

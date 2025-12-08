@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -75,16 +76,53 @@ final mediaPostsStreamProvider =
   return stream;
 });
 
-
-// home page riverpod provider
-
-final zimaxHomePostsProvider = StreamProvider.autoDispose((ref) {
+final zimaxHomePostsProvider = StreamProvider.autoDispose<List<MediaPost>>((ref) {
   final supabase = Supabase.instance.client;
+  final controller = StreamController<List<MediaPost>>();
 
-  return supabase
+  List<MediaPost> cache = [];
+
+  supabase
       .from('media_posts')
-      .stream(primaryKey: ['id'])
+      .select()
       .eq('posted_to', 'Zimax home')
       .order('created_at', ascending: false)
-      .map((data) => data.map((e) => MediaPost.fromJson(e)).toList());
+      .then((rows) {
+        cache = rows.map((e) => MediaPost.fromJson(e)).toList();
+        controller.add(cache);
+      })
+      // ignore: invalid_return_type_for_catch_error
+      .catchError((e, st) => controller.addError(e, st));
+
+  final subscription = supabase
+      .from('media_posts')
+      .stream(primaryKey: ['id'])
+      .listen((changes) {
+        for (final row in changes) {
+          final post = MediaPost.fromJson(row);
+
+          final index = cache.indexWhere((p) => p.id == post.id);
+
+          if (index != -1) {
+            cache[index] = post;
+          } else {
+            cache.insert(0, post);
+          }
+        }
+
+        controller.add(List<MediaPost>.from(cache));
+      }, onError: (e, st) {
+        controller.addError(e, st);
+      });
+
+  ref.onDispose(() {
+    subscription.cancel();
+    controller.close();
+  });
+
+  return controller.stream;
 });
+
+
+
+

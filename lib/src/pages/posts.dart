@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 // import 'package:uuid/uuid.dart';
 import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/models/mediapost.dart';
@@ -62,6 +64,7 @@ class _PostsState extends ConsumerState<Posts> {
       return supabase.storage.from("media").getPublicUrl(path);
     } catch (e) {
       showSnack("Upload failed: $e", isError: true);
+      print(e);
       return null;
     } finally {
       setState(() => uploading = false);
@@ -69,96 +72,136 @@ class _PostsState extends ConsumerState<Posts> {
   }
 
   Future<void> createPost() async {
-  final user = supabase.auth.currentUser;
-  if (user == null) return;
 
-  final profile = ref.read(userProfileProvider);
+    final messenger = ScaffoldMessenger.of(context);
 
-  showPostingSnack();
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
 
-  final imageUrl = postType == "media" ? await uploadImage() : null;
+    final profile = ref.read(userProfileProvider);
 
-  final post = MediaPost(
-    id: user.id,
-    userId: user.id,
-    pfp: profile?.pfp ?? "",
-    username: profile?.fullname ?? "",
-    department: profile?.department ?? "",
-    level: profile?.level ?? "",
-    status: profile?.status ?? "",
-    title: titleController.text.trim(),
-    content: bodyController.text.trim(),
-    mediaUrl: imageUrl,
-    likes: 0,
-    comments: 0,
-    polls: 0,
-    reposts: 0,
-    postedTo: selectedCommunity ?? "",
-    createdAt: DateTime.now(),
-  );
+    showPostingSnack();
 
-  try {
-    await supabase.from("media_posts").insert(post.toJson());
+    final imageUrl = postType == "media" ? await uploadImage() : null;
 
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    final post = MediaPost(
+       id : Uuid().v4(),
+      userId: user.id,
+      pfp: profile?.pfp ?? "",
+      username: profile?.fullname ?? "",
+      department: profile?.department ?? "",
+      level: profile?.level ?? "",
+      status: profile?.status ?? "",
+      title: titleController.text.trim(),
+      content: bodyController.text.trim(),
+      mediaUrl: imageUrl,
+      likes: 0,
+      comments: 0,
+      polls: 0,
+      reposts: 0,
+      postedTo: selectedCommunity ?? "",
+      createdAt: DateTime.now(),
+    );
 
-    showSnack("Post published");
+    try {
+      await supabase.from("media_posts").insert(post.toJson());
 
-    resetPostFields();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-  } catch (e) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    showSnack("Insert failed: $e", isError: true);
-  }
-}
-void showPostingSnack() {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(days: 1),
-      content: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.black87,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              "Posting...",
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 14,
-              ),
-            )
-          ],
+      showSnack("Post published");
+
+      resetPostFields();
+    } on PostgrestException catch (e) {
+    messenger.hideCurrentSnackBar();
+
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.red.shade600,
+        content: Text(
+          "Database error: ${e.message}",
+          style: GoogleFonts.poppins(color: Colors.white),
         ),
       ),
-    ),
-  );
-}
-void resetPostFields() {
-  titleController.clear();
-  bodyController.clear();
-  linkController.clear();
-  selectedImage = null;
-  postType = "text";
-  selectedCommunity = null;
+    );
+  }
+  on SocketException {
+    messenger.hideCurrentSnackBar();
 
-  setState(() {}); // refresh UI
-}
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.red.shade600,
+        content: Text(
+          "No internet connection",
+          style: GoogleFonts.poppins(color: Colors.white),
+        ),
+      ),
+    );
+  }
 
+  on TimeoutException {
+    messenger.hideCurrentSnackBar();
+
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.red.shade600,
+        content: Text(
+          "Request timed out",
+          style: GoogleFonts.poppins(color: Colors.white),
+        ),
+      ),
+    );
+  }catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      showSnack("Insert failed: $e", isError: true);
+      print(e);
+    }
+  }
+
+  void showPostingSnack() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(days: 1),
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                "Posting...",
+                style: GoogleFonts.poppins(color: Colors.white, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void resetPostFields() {
+    titleController.clear();
+    bodyController.clear();
+    linkController.clear();
+    selectedImage = null;
+    postType = "text";
+    selectedCommunity = null;
+
+    setState(() {}); // refresh UI
+  }
 
   void showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -183,7 +226,13 @@ void resetPostFields() {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(msg, style: GoogleFonts.poppins(fontSize: 14, color: isError ? Colors.red : Colors.green,)),
+                child: Text(
+                  msg,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: isError ? Colors.red : Colors.green,
+                  ),
+                ),
               ),
             ],
           ),
@@ -211,7 +260,7 @@ void resetPostFields() {
           Padding(
             padding: const EdgeInsets.all(10),
             child: TextButton(
-              onPressed: canPost ? createPost : null,
+              onPressed: canPost ? () => createPost() : null,
               style: TextButton.styleFrom(
                 backgroundColor: canPost ? Colors.black : Colors.grey.shade300,
                 foregroundColor: Colors.white,

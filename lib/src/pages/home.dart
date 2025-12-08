@@ -118,11 +118,8 @@ Widget postShimmer() {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          // ------------------ HEADER ------------------
           Row(
             children: [
-              // Profile picture shimmer
               Container(
                 width: 35,
                 height: 35,
@@ -132,8 +129,6 @@ Widget postShimmer() {
                 ),
               ),
               const SizedBox(width: 10),
-
-              // Name + department + date
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -154,8 +149,6 @@ Widget postShimmer() {
           ),
 
           const SizedBox(height: 16),
-
-          // ------------------ IMAGE ------------------
           Container(
             height: 300,
             width: double.infinity,
@@ -164,7 +157,6 @@ Widget postShimmer() {
 
           const SizedBox(height: 16),
 
-          // ------------------ TEXT CONTENT ------------------
           Container(
             width: double.infinity,
             height: 12,
@@ -184,8 +176,6 @@ Widget postShimmer() {
           ),
 
           const SizedBox(height: 16),
-
-          // ------------------ ACTION ICONS ------------------
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -211,17 +201,3 @@ Widget _iconShimmer() {
   );
 }
 
-// Icon _getStatusIcon(String status) {
-//   switch (status) {
-//     case "Student":
-//       return const Icon(Icons.school, size: 18, color: Color.fromARGB(255, 0, 0, 254));
-//     case "Academic Staff":
-//       return const Icon(Icons.star, size: 18, color: Color.fromARGB(255, 255, 208, 0));
-//     case "Non-Academic Staff":
-//       return const Icon(Icons.work, size: 18, color: Color.fromARGB(255, 255, 0, 0));
-//     case "Admin":
-//       return const Icon(Icons.verified, size: 18, color: Color.fromARGB(255, 2, 145, 19));
-//     default:
-//       return const Icon(Icons.person, size: 18, color: Colors.grey);
-//   }
-// }
