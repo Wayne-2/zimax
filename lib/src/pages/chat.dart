@@ -275,68 +275,66 @@ void dispose() {
         ),]),
 
 
-        floatingActionButton: AnimatedBuilder(
-          // Listen to both controllers so builder rebuilds when either changes
-          animation: Listenable.merge([_introController, _pulseController]),
-          builder: (context, child) {
-            // Combined scale: bounce (from intro) * pulse (idle)
-            final combinedScale = (bounce.value) * (pulse.value);
-
-            return Opacity(
-              opacity: fade.value,
-              child: Transform.translate(
-                offset: Offset(0, slide.value),
-                child: Transform.scale(
-                  scale: combinedScale,
-                  child: child,
+        floatingActionButton: Container(
+          margin: EdgeInsets.symmetric(vertical: 20),
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_introController, _pulseController]),
+            builder: (context, child) {
+              final combinedScale = (bounce.value) * (pulse.value);
+          
+              return Opacity(
+                opacity: fade.value,
+                child: Transform.translate(
+                  offset: Offset(0, slide.value),
+                  child: Transform.scale(
+                    scale: combinedScale,
+                    child: child,
+                  ),
                 ),
-              ),
-            );
-          },
-
-          // child is built once, reused by AnimatedBuilder
-          child: GestureDetector(
-            onTap: () async {
-                final selected = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddChatPage()),
-                );
-
-                if (selected != null) {
-                  print("Start chat with: $selected");
-
-              }
+              );
             },
-            child: Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    blurRadius: 12,
-                    color: Colors.black.withOpacity(0.25),
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // use your SVG icon widget
-                  SvgIcon("assets/icons/newchat.svg", color: Colors.white, size: 25),
-                  const SizedBox(width: 10),
-                  // optional label; remove if you prefer icon-only
-                  Text(
-                    "New",
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+          
+            child: GestureDetector(
+              onTap: () async {
+                  final selected = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddChatPage()),
+                  );
+          
+                  if (selected != null) {
+                    print("Start chat with: $selected");
+          
+                }
+              },
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      blurRadius: 12,
+                      color: Colors.black.withOpacity(0.25),
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SvgIcon("assets/icons/newchat.svg", color: Colors.white, size: 25),
+                    const SizedBox(width: 10),
+                    Text(
+                      "New",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

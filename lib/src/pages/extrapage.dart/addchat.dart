@@ -1,253 +1,210 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zimax/src/services/riverpod.dart';
 
-class AddChatPage extends StatefulWidget {
+
+class AddChatPage extends ConsumerStatefulWidget {
   const AddChatPage({super.key});
 
   @override
-  State<AddChatPage> createState() => _NewChatPageState();
+  ConsumerState<AddChatPage> createState() => _AddChatPageState();
 }
 
-class _NewChatPageState extends State<AddChatPage> {
+class _AddChatPageState extends ConsumerState<AddChatPage> {
   final TextEditingController _search = TextEditingController();
   String query = "";
 
-  Stream<List<Map<String, dynamic>>> getUsersStream() {
-    final supabase = Supabase.instance.client;
-
-    return supabase
-        .from('user_profile')
-        .stream(primaryKey: ['id'])
-        .order('created_at')
-        .map((rows) => rows.map((e) => e).toList());
-  }
-
   @override
   Widget build(BuildContext context) {
-    // final supabase = Supabase.instance.client;
-    // final String myId = Supabase.instance.client.auth.currentUser!.id;
+    final usersAsync = ref.watch(userServiceStreamProvider);
+    final myUser = Supabase.instance.client.auth.currentUser;
+    final myId = myUser?.id;
 
     return Scaffold(
+      backgroundColor: Colors.white,
+
       appBar: AppBar(
-        elevation: 0,
-        automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
-        titleSpacing: 0,
+        elevation: 0,
         leading: GestureDetector(
           onTap: () => Navigator.pop(context),
-          child: const Icon(Icons.chevron_left, size: 22),
+          child: const Icon(Icons.chevron_left, size: 22, color: Colors.black),
         ),
         title: Text(
           "New Conversations",
           style: GoogleFonts.poppins(
             fontSize: 15,
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: Colors.black,
           ),
         ),
-        actions: const [Icon(Icons.more_vert, size: 20), SizedBox(width: 15)],
       ),
-
-      backgroundColor: Colors.white,
 
       body: Column(
         children: [
-          // SEARCH BAR
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              height: 45,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: TextField(
-                controller: _search,
-                onChanged: (val) => setState(() => query = val),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: "Search users",
-                  hintStyle: GoogleFonts.poppins(fontSize: 14),
-                ),
-              ),
-            ),
-          ),
+          _buildSearchBar(),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Text(
-                  "Available on Zimax",
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
+            child: Text(
+              "Available on Zimax",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
           ),
 
           const SizedBox(height: 6),
 
           Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: getUsersStream(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return ListView.builder(
-                    itemCount: 5,
-                    padding: const EdgeInsets.only(top: 10),
-                    itemBuilder: (context, index) => shimmerTile(),
-                  );
-                }
+            child: usersAsync.when(
+              loading: () => _buildShimmerList(),
+              error: (e, _) => Center(child: Text("Error: $e")),
+              data: (users) {
+                // FILTER OUT CURRENT USER
+                final filtered = users.where((u) => u["id"] != myId).toList();
 
-                if (!snapshot.hasData || snapshot.data == null) {
+                // SEARCH FILTER
+                final q = query.toLowerCase();
+                final searched = filtered.where((u) {
+                  final name = (u["fullname"] ?? "").toLowerCase();
+                  final email = (u["email"] ?? "").toLowerCase();
+                  return name.contains(q) || email.contains(q);
+                }).toList();
+
+                if (searched.isEmpty) {
                   return Center(
                     child: Text(
-                      "No users yet",
+                      "No users found",
                       style: GoogleFonts.poppins(
                         fontSize: 14,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w500,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   );
                 }
 
-                final users = snapshot.data!;
-                final String myId = Supabase.instance.client.auth.currentUser!.id;
-
-                final filtered = users.where((u) {
-                  final uid = u["id"]?.toString() ?? "";
-
-                  if (uid == myId) return false;
-
-                  final name = (u["fullname"] ?? "").toLowerCase();
-                  final email = (u["email"] ?? "").toLowerCase();
-                  final q = query.toLowerCase();
-
-                  return name.contains(q) || email.contains(q);
-                }).toList();
-
-                    if (filtered.isEmpty) {
-                      return Center(
-                        child: Text(
-                          "No users yet",
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.black54,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      );
-                    }
-
                 return ListView.builder(
-                  itemCount: filtered.length,
-                  padding: const EdgeInsets.only(top: 0),
-                  itemBuilder: (context, i) {
-                    final user = filtered[i];
-
-                    final joinString = user["created_at"]?.toString();
-                    DateTime joinDate = DateTime.tryParse(joinString ?? "") ?? DateTime.now();
-                    final readable = DateFormat('d MMM yyyy').format(joinDate);
-
-                    final status = user["status"];
-
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 2,
-                      ),
-                      leading: CircleAvatar(
-                        radius: 22,
-                        backgroundImage: user["profile_image_url"] != null
-                            ? NetworkImage(user["profile_image_url"])
-                            : const NetworkImage("https://i.pravatar.cc/150?img=3"),
-                      ),
-                      title: Row(
-                        children: [
-                          Text(
-                            user["fullname"] ?? "Unknown User",
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          _getStatusIcon(status),
-                          const SizedBox(width: 4),
-                          Icon(Icons.circle, size: 4),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Joined in $readable',
-                            style: GoogleFonts.poppins(
-                              color: Color.fromARGB(188, 0, 0, 0),
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        user["email"] ?? "No email",
-                        style: GoogleFonts.poppins(
-                          color: Colors.black45,
-                          fontSize: 12,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(context, user["username"]);
-                      },
-                    );
+                  itemCount: searched.length,
+                  itemBuilder: (context, index) {
+                    final user = searched[index];
+                    return _buildUserTile(user);
                   },
                 );
               },
             ),
-          )
-
+          ),
         ],
       ),
     );
   }
-}
 
-Icon _getStatusIcon(String status) {
-  switch (status) {
-    case "Student":
-      return const Icon(
-        Icons.school,
-        size: 18,
-        color: Color.fromARGB(255, 0, 0, 254),
-      );
-    case "Academic Staff":
-      return const Icon(
-        Icons.star,
-        size: 18,
-        color: Color.fromARGB(255, 255, 208, 0),
-      );
-    case "Non-Academic Staff":
-      return const Icon(
-        Icons.work,
-        size: 18,
-        color: Color.fromARGB(255, 255, 0, 0),
-      );
-    case "Admin":
-      return const Icon(
-        Icons.verified,
-        size: 18,
-        color: Color.fromARGB(255, 2, 145, 19),
-      );
-    default:
-      return const Icon(Icons.person, size: 18, color: Colors.grey);
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Container(
+        height: 45,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          color: Colors.grey.shade200,
+        ),
+        child: TextField(
+          controller: _search,
+          onChanged: (v) => setState(() => query = v),
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: "Search users",
+            hintStyle: GoogleFonts.poppins(fontSize: 14),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserTile(Map user) {
+    final joinDate = DateTime.tryParse(user["created_at"] ?? "") ?? DateTime.now();
+    final readable = DateFormat("d MMM yyyy").format(joinDate);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+
+      leading: CircleAvatar(
+        radius: 22,
+        backgroundImage: (user["profile_image_url"] != null &&
+                user["profile_image_url"] != "")
+            ? NetworkImage(user["profile_image_url"])
+            : const NetworkImage("https://i.pravatar.cc/150?img=3"),
+      ),
+
+      title: Row(
+        children: [
+          Text(
+            user["fullname"] ?? "Unknown User",
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 4),
+          _buildStatusIcon(user["status"] ?? ""),
+          const SizedBox(width: 4),
+          const Icon(Icons.circle, size: 4, color: Colors.grey),
+          const SizedBox(width: 4),
+          Text(
+            "Joined $readable",
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+
+      subtitle: Text(
+        user["email"] ?? "No email",
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          color: Colors.black45,
+        ),
+      ),
+
+      onTap: () {
+        Navigator.pop(context, user["username"]);
+      },
+    );
+  }
+
+  Widget _buildShimmerList() {
+    return ListView.builder(
+      itemCount: 5,
+      itemBuilder: (_, __) => shimmerTile(),
+    );
+  }
+
+  Icon _buildStatusIcon(String status) {
+    switch (status) {
+      case "Student":
+        return const Icon(Icons.school, size: 18, color: Colors.blue);
+      case "Academic Staff":
+        return const Icon(Icons.star, size: 18, color: Colors.amber);
+      case "Non-Academic Staff":
+        return const Icon(Icons.work, size: 18, color: Colors.red);
+      case "Admin":
+        return const Icon(Icons.verified, size: 18, color: Colors.green);
+      default:
+        return const Icon(Icons.person, size: 18, color: Colors.grey);
+    }
   }
 }
 
@@ -259,23 +216,19 @@ Widget shimmerTile() {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          // Avatar shimmer
           Container(
             width: 45,
             height: 45,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 12),
-
-          // Name + subtitle shimmer
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title shimmer
                 Container(
                   width: 160,
                   height: 14,
@@ -285,8 +238,6 @@ Widget shimmerTile() {
                   ),
                 ),
                 const SizedBox(height: 8),
-
-                // Subtitle shimmer
                 Container(
                   width: 120,
                   height: 12,

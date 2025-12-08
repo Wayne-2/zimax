@@ -8,18 +8,15 @@ import 'package:zimax/src/models/userprofile.dart';
 class UserNotifier extends StateNotifier<Userprofile?> {
   UserNotifier() : super(null);
 
-  // Store user data
   void setUser(Userprofile user) {
     state = user;
   }
 
-  // Clear user data
   void clearUser() {
     state = null;
   }
 }
 
-// Global provider
 final userProfileProvider = StateNotifierProvider<UserNotifier, Userprofile?>((ref) {
   return UserNotifier();
 });
@@ -30,9 +27,33 @@ final usersStreamProvider = StreamProvider.autoDispose((ref) {
 
   return supabase
       .from('user_profile')
-      .stream(primaryKey: ['id']) // must match your primary key
+      .stream(primaryKey: ['id'])
       .order('created_at')
       .map((rows) {
         return rows.map((e) => Addchatinfo.fromMap(e)).toList();
       });
 });
+
+
+final userServiceStreamProvider =
+    StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final supabase = Supabase.instance.client;
+
+  return supabase
+      .from('user_profile')
+      .stream(primaryKey: ['id'])
+      .order('created_at')
+      .map((rows) {
+    return rows.map((e) {
+      return {
+        'id': e['id'],
+        'fullname': e['fullname'] ?? '',
+        'email': e['email'] ?? '',
+        'status': e['status'] ?? '',
+        'profile_image_url': e['profile_image_url'] ?? '',
+        'created_at': e['created_at'] ?? '',
+      };
+    }).toList();
+  });
+});
+

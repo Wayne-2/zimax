@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 final ImagePicker _picker = ImagePicker();
 
-/// PICK IMAGE
 Future<File?> pickImage() async {
   final XFile? pickedFile = await _picker.pickImage(
     source: ImageSource.gallery,
@@ -21,17 +20,14 @@ Future<File?> pickImage() async {
 Future<String?> uploadProfileImage(File file, String userId) async {
   final supabase = Supabase.instance.client;
 
-  // Unique file name
   final fileName =
       'profile/$userId/${DateTime.now().millisecondsSinceEpoch}.png';
 
   try {
-    // Upload image
     await supabase.storage
-        .from('avatars') // bucket name
+        .from('avatars') 
         .upload(fileName, file);
 
-    // Get public URL
     final String publicUrl =
         supabase.storage.from('avatars').getPublicUrl(fileName);
 
