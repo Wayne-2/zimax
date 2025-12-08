@@ -4,7 +4,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
@@ -18,9 +20,103 @@ class Posts extends ConsumerStatefulWidget {
 class _PostState extends ConsumerState<Posts> {
   final titleController = TextEditingController();
   final bodyController = TextEditingController();
+  final linkController = TextEditingController();
 
   String postType = "text"; // text / media / link
   String? selectedCommunity;
+
+  File? selectedImage;
+  bool isUploading = false;
+
+  final ImagePicker _picker = ImagePicker();
+  final supabase = Supabase.instance.client;
+
+  Future<void> pickImage() async {
+    final XFile? file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 75,
+    );
+
+    if (file != null) {
+      setState(() => selectedImage = File(file.path));
+    }
+  }
+
+  Future<String?> uploadImage() async {
+    if (selectedImage == null) return null;
+
+    setState(() => isUploading = true);
+
+    final user = supabase.auth.currentUser;
+    if (user == null) return null;
+
+    final fileName =
+        "posts/${user.id}/${DateTime.now().millisecondsSinceEpoch}.jpg";
+
+    try {
+      await supabase.storage
+          .from("post_media")
+          .upload(fileName, selectedImage!);
+
+      final imageUrl = supabase.storage
+          .from("post_media")
+          .getPublicUrl(fileName);
+
+      return imageUrl;
+    } catch (e) {
+      showSnack("Upload failed: $e", isError: true);
+      return null;
+    } finally {
+      setState(() => isUploading = false);
+    }
+  }
+
+  void showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            color: isError ? Colors.red.shade50 : Colors.green.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isError ? Colors.red.shade200 : Colors.green.shade200,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isError ? Icons.error_rounded : Icons.check_circle_rounded,
+                color: isError ? Colors.red.shade400 : Colors.green.shade400,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +145,10 @@ class _PostState extends ConsumerState<Posts> {
                 backgroundColor: canPost ? Colors.black : Colors.grey.shade300,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              child: Text("Post", style: GoogleFonts.poppins()),
+              child: Text("Post", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w400)),
             ),
           ),
         ],
@@ -76,7 +172,6 @@ class _PostState extends ConsumerState<Posts> {
           if (postType == "text") _bodyField(),
           if (postType == "media") _mediaPicker(),
           if (postType == "link") _urlField(),
-
         ],
       ),
     );
@@ -240,35 +335,35 @@ class _PostState extends ConsumerState<Posts> {
     return TextField(
       controller: titleController,
       style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w500),
-        cursorHeight: 20,
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Theme.of(context).cardColor,
-          hintText: 'Title',
-          hintStyle: GoogleFonts.poppins(fontSize: 13),
-          prefixIconConstraints: const BoxConstraints(minWidth: 48),
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 18.0,
-            horizontal: 12.0,
+      cursorHeight: 20,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Theme.of(context).cardColor,
+        hintText: 'Title',
+        hintStyle: GoogleFonts.poppins(fontSize: 13),
+        prefixIconConstraints: const BoxConstraints(minWidth: 48),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 18.0,
+          horizontal: 12.0,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.5),
+            width: 1,
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: Theme.of(context).dividerColor.withOpacity(0.5),
-              width: 1,
-            ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.8),
+            width: 1.2,
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: Theme.of(context).dividerColor.withOpacity(0.8),
-              width: 1.2,
-            ),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Colors.redAccent, width: 1.6),
-          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.6),
+        ),
       ),
     );
   }
@@ -281,14 +376,14 @@ class _PostState extends ConsumerState<Posts> {
       style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         hintText: "What's on your mind?",
-        hintStyle:  GoogleFonts.poppins(fontSize: 13),
+        hintStyle: GoogleFonts.poppins(fontSize: 13),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: Theme.of(context).dividerColor.withOpacity(0.3),
-              width: 1,
-            ),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.3),
+            width: 1,
           ),
+        ),
         filled: true,
         fillColor: Colors.white,
       ),
@@ -297,94 +392,70 @@ class _PostState extends ConsumerState<Posts> {
 
   Widget _urlField() {
     return TextField(
+      controller: linkController,
       style: GoogleFonts.poppins(),
       decoration: InputDecoration(
         hintText: "Paste your link",
-        hintStyle: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
+        hintStyle: GoogleFonts.poppins(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
         prefixIcon: const Icon(Icons.link, size: 18),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: Theme.of(context).dividerColor.withOpacity(0.3),
-              width: 1,
-            ),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.3),
+            width: 1,
           ),
+        ),
         filled: true,
         fillColor: Colors.white,
       ),
     );
   }
 
-File? selectedImage;
+  Widget _mediaPicker() {
+    return GestureDetector(
+      onTap: pickImage,
+      child: Container(
+        height: 170,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade300),
+          color: Colors.white,
+        ),
 
-Widget _mediaPicker() {
-  return GestureDetector(
-    onTap: _pickImage, 
-    child: Container(
-      height: 170,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade300),
-        color: Colors.white,
-      ),
-
-      // ✅ If image selected → show it
-      child: selectedImage != null
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Image.file(
-                selectedImage!,
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            )
-
-          // ✅ Otherwise → show your original UI
-          : Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.add_a_photo,
-                    size: 38,
-                    color: Theme.of(context).dividerColor.withOpacity(0.3),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "Add photo",
-                    style: GoogleFonts.poppins(
-                      color: Colors.black54,
-                      fontSize: 14,
+        child: selectedImage != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.file(
+                  selectedImage!,
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              )
+            : Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add_a_photo,
+                      size: 38,
+                      color: Theme.of(context).dividerColor.withOpacity(0.3),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      "Add photo",
+                      style: GoogleFonts.poppins(
+                        color: Colors.black54,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-    ),
-  );
-}
-
-
-  // Widget _bottomActionBar() {
-  //   return Container(
-  //     height: 55,
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(16),
-  //       border: Border.all(color: Colors.grey.shade300),
-  //     ),
-  //     padding: const EdgeInsets.symmetric(horizontal: 22),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //       children: [
-  //         Icon(Icons.image_outlined, size: 24, color: Colors.black54),
-  //         Icon(Icons.gif_box_outlined, size: 24, color: Colors.black54),
-  //         Icon(Icons.poll_outlined, size: 24, color: Colors.black54),
-  //         Icon(Icons.location_on_outlined, size: 24, color: Colors.black54),
-  //         Icon(Icons.more_horiz, size: 24, color: Colors.black54),
-  //       ],
-  //     ),
-  //   );
-  // }
+      ),
+    );
+  }
 }

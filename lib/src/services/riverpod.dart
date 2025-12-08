@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/models/addchatinfo.dart';
+import 'package:zimax/src/models/mediapost.dart';
 import 'package:zimax/src/models/userprofile.dart';
 
 
@@ -57,3 +58,19 @@ final userServiceStreamProvider =
   });
 });
 
+// media_post riverpod streaming
+
+final mediaPostsStreamProvider =
+    StreamProvider.autoDispose<List<MediaPost>>((ref) {
+  final supabase = Supabase.instance.client;
+
+  final stream = supabase
+      .from('media_posts')
+      .stream(primaryKey: ['id'])         
+      .order('created_at', ascending: false)   
+      .map((rows) {
+        return rows.map((e) => MediaPost.fromJson(e)).toList();
+      });
+
+  return stream;
+});
