@@ -125,25 +125,9 @@ void dispose() {
         elevation: 0,
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
-        title: Container(
-          height: 35,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: const Color.fromARGB(255, 226, 226, 226),
-            borderRadius: BorderRadius.circular(50),
-          ),
-          child: TextField(
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Search...',
-              // contentPadding: EdgeInsets.zero,
-              hintStyle: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-              // prefixIcon: Icon(Icons.search),
-            ),
-          ),
+        title: Text(
+          "Zimax Chat",
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
         ),
 
         actions: [
@@ -185,12 +169,35 @@ void dispose() {
       body: Column(
         children: [
           Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0),
+            child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(255, 226, 226, 226),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: TextField(
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Search...',
+                // contentPadding: EdgeInsets.zero,
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                prefixIcon: Icon(Icons.manage_search_sharp),
+              ),
+            ),
+                    ),
+          ),
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Text(
-                  'Engagements',
+                  'Story',
                   style: GoogleFonts.poppins(
                     color: Colors.black87,
                     fontWeight: FontWeight.w600,

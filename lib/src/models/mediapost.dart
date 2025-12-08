@@ -13,6 +13,7 @@ class MediaPost {
   final int comments;
   final int polls;
   final int reposts;
+  final String postedTo;
   final DateTime createdAt;
 
   MediaPost({
@@ -29,6 +30,7 @@ class MediaPost {
     required this.likes,
     required this.comments,
     required this.polls,
+    required this.postedTo,
     required this.reposts,
     required this.createdAt,
   });
@@ -48,6 +50,7 @@ class MediaPost {
       likes: (json['likes'] ?? 0) as int,
       comments: (json['comments'] ?? 0) as int,
       polls: (json['polls'] ?? 0) as int,
+      postedTo: json['posted_to'] ?? "",
       reposts: (json['reposts'] ?? 0) as int,
       createdAt: DateTime.tryParse(json['created_at'] ?? "") ??
           DateTime.now(),
@@ -68,6 +71,7 @@ class MediaPost {
       'media_url': mediaUrl,
       'likes': likes,
       'comments': comments,
+      'posted_to': postedTo,
       'polls': polls,
       'reposts': reposts,
       'created_at': createdAt.toIso8601String(),
