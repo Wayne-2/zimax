@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,32 +6,35 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import 'package:zimax/src/components/svgicon.dart';
+import 'package:zimax/src/models/mediapost.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
 class Posts extends ConsumerStatefulWidget {
   const Posts({super.key});
 
   @override
-  ConsumerState<Posts> createState() => _PostState();
+  ConsumerState<Posts> createState() => _PostsState();
 }
 
-class _PostState extends ConsumerState<Posts> {
+class _PostsState extends ConsumerState<Posts> {
   final titleController = TextEditingController();
   final bodyController = TextEditingController();
   final linkController = TextEditingController();
 
-  String postType = "text"; // text / media / link
+  String postType = "text"; // text | media | link
   String? selectedCommunity;
 
   File? selectedImage;
   bool isUploading = false;
 
-  final ImagePicker _picker = ImagePicker();
+  final ImagePicker picker = ImagePicker();
   final supabase = Supabase.instance.client;
 
+  // IMAGE PICKER
   Future<void> pickImage() async {
-    final XFile? file = await _picker.pickImage(
+    final XFile? file = await picker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 75,
     );
@@ -42,6 +44,7 @@ class _PostState extends ConsumerState<Posts> {
     }
   }
 
+  // UPLOAD IMAGE TO STORAGE
   Future<String?> uploadImage() async {
     if (selectedImage == null) return null;
 
@@ -50,19 +53,11 @@ class _PostState extends ConsumerState<Posts> {
     final user = supabase.auth.currentUser;
     if (user == null) return null;
 
-    final fileName =
-        "posts/${user.id}/${DateTime.now().millisecondsSinceEpoch}.jpg";
+    final path = "posts/${user.id}/${DateTime.now().millisecondsSinceEpoch}.jpg";
 
     try {
-      await supabase.storage
-          .from("post_media")
-          .upload(fileName, selectedImage!);
-
-      final imageUrl = supabase.storage
-          .from("post_media")
-          .getPublicUrl(fileName);
-
-      return imageUrl;
+      await supabase.storage.from("post_media").upload(path, selectedImage!);
+      return supabase.storage.from("post_media").getPublicUrl(path);
     } catch (e) {
       showSnack("Upload failed: $e", isError: true);
       return null;
@@ -71,46 +66,69 @@ class _PostState extends ConsumerState<Posts> {
     }
   }
 
-  void showSnack(String message, {bool isError = false}) {
+  // INSERT POST INTO DB
+  Future<void> createPost() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    final profile = ref.read(userProfileProvider);
+
+    final imageUrl = postType == "media" ? await uploadImage() : null;
+    final post = MediaPost(
+      id: Uuid().v4(),
+      userId: user.id,
+      pfp: profile?.pfp ?? "",
+      username: profile?.fullname ?? "",
+      department: profile?.department ?? "",
+      level: profile?.level ?? "",
+      status: profile?.status ?? "",
+      title: titleController.text.trim(),
+      content: bodyController.text.trim(),
+      mediaUrl: imageUrl,
+      likes: 0,
+      comments: 0,
+      polls: 0,
+      reposts: 0,
+      createdAt: DateTime.now(),
+    );
+
+
+    await supabase.from("media_posts").insert(post.toJson());
+
+    showSnack("Post published");
+
+    Navigator.pop(context);
+  }
+
+  // SNACKBAR UI
+  void showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         content: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: isError ? Colors.red.shade50 : Colors.green.shade50,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isError ? Colors.red.shade200 : Colors.green.shade200,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
           ),
           child: Row(
             children: [
               Icon(
-                isError ? Icons.error_rounded : Icons.check_circle_rounded,
-                color: isError ? Colors.red.shade400 : Colors.green.shade400,
-                size: 22,
+                isError ? Icons.error : Icons.check_circle,
+                color: isError ? Colors.red : Colors.green,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  message,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: Colors.black87,
-                  ),
+                  msg,
+                  style: GoogleFonts.poppins(fontSize: 14),
                 ),
-              ),
+              )
             ],
           ),
         ),
@@ -120,27 +138,27 @@ class _PostState extends ConsumerState<Posts> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userProfileProvider);
-    final username = user!.fullname;
-    final pfp = user.pfp;
-    final email = user.email;
+    final profile = ref.watch(userProfileProvider);
+
     final canPost = titleController.text.trim().isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0,
-        automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         title: Text(
-          'Zimax posts',
-          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
+          "Create Post",
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 14, top: 10, bottom: 10),
+            padding: const EdgeInsets.all(10),
             child: TextButton(
-              onPressed: canPost ? () {} : null,
+              onPressed: canPost ? createPost : null,
               style: TextButton.styleFrom(
                 backgroundColor: canPost ? Colors.black : Colors.grey.shade300,
                 foregroundColor: Colors.white,
@@ -148,73 +166,68 @@ class _PostState extends ConsumerState<Posts> {
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
-              child: Text("Post", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w400)),
+              child: Text("Post", style: GoogleFonts.poppins(fontSize: 13)),
             ),
-          ),
+          )
         ],
       ),
 
       body: ListView(
         padding: const EdgeInsets.all(16),
+
         children: [
           _communitySelector(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           _postTypeSelector(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          _composerHeader('$pfp ', '$username ', '$email '),
+          _header(profile),
           const SizedBox(height: 16),
 
           _titleField(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
           if (postType == "text") _bodyField(),
           if (postType == "media") _mediaPicker(),
-          if (postType == "link") _urlField(),
+          if (postType == "link") _linkField(),
         ],
       ),
     );
   }
 
+  // COMMUNITY SELECTOR
   Widget _communitySelector() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.5),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
         children: [
-          SvgIcon(
-            "assets/icons/post_icon.svg",
-            color: const Color.fromARGB(255, 85, 85, 85),
-            size: 18,
-          ),
+          SvgIcon("assets/icons/post_icon.svg",
+              size: 18, color: Colors.black54),
           const SizedBox(width: 10),
+
           Expanded(
             child: DropdownButton<String>(
-              isExpanded: true,
-              underline: const SizedBox(),
               value: selectedCommunity,
-              hint: Text(
-                "post to...",
-                style: GoogleFonts.poppins(fontSize: 14),
-              ),
-              items: ["Zimax home", "Engagements", "Spaces", "Groups"]
-                  .map(
-                    (e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(
-                        "@ $e",
-                        style: GoogleFonts.poppins(fontSize: 13),
-                      ),
-                    ),
-                  )
+              underline: const SizedBox(),
+              hint: Text("Post to...",
+                  style: GoogleFonts.poppins(fontSize: 14)),
+              items: [
+                "Zimax home",
+                "Engagements",
+                "Spaces",
+                "Groups",
+              ]
+                  .map((e) => DropdownMenuItem(
+                        value: e,
+                        child: Text("@ $e",
+                            style: GoogleFonts.poppins(fontSize: 13)),
+                      ))
                   .toList(),
               onChanged: (v) => setState(() => selectedCommunity = v),
             ),
@@ -224,84 +237,77 @@ class _PostState extends ConsumerState<Posts> {
     );
   }
 
+  // POST TYPE
   Widget _postTypeSelector() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _typeChip("text", 'assets/icons/text.svg'),
+        _chip("text", "assets/icons/text.svg"),
         const SizedBox(width: 10),
-        _typeChip("media", 'assets/icons/media.svg'),
+        _chip("media", "assets/icons/media.svg"),
         const SizedBox(width: 10),
-        _typeChip("link", 'assets/icons/link.svg'),
+        _chip("link", "assets/icons/link.svg"),
       ],
     );
   }
 
-  Widget _typeChip(String type, String icon) {
-    final isActive = postType == type;
+  Widget _chip(String type, String icon) {
+    final active = postType == type;
+
     return GestureDetector(
       onTap: () => setState(() => postType = type),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 8),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? Colors.black : Colors.grey.shade200,
+          color: active ? Colors.black : Colors.grey.shade200,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
-            SvgIcon(
-              icon,
-              color: isActive ? Colors.white : Colors.black54,
-              size: 18,
-            ),
+            SvgIcon(icon,
+                size: 18,
+                color: active ? Colors.white : Colors.black54),
             const SizedBox(width: 6),
             Text(
               type[0].toUpperCase() + type.substring(1),
               style: GoogleFonts.poppins(
-                color: isActive ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w400,
+                color: active ? Colors.white : Colors.black87,
                 fontSize: 13,
               ),
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _composerHeader(String pfp, String username, String email) {
+  // USER HEADER
+  // ignore: strict_top_level_inference
+  Widget _header(profile) {
     return Row(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: CachedNetworkImage(
-            imageUrl: pfp,
+            imageUrl: profile?.pfp ?? "",
             width: 40,
             height: 40,
             fit: BoxFit.cover,
-
-            placeholder: (context, url) => Shimmer.fromColors(
+            placeholder: (_, __) => Shimmer.fromColors(
               baseColor: Colors.grey.shade300,
               highlightColor: Colors.grey.shade100,
               child: Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
+                color: Colors.white,
               ),
             ),
-
-            errorWidget: (context, url, error) => Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15),
-                color: Colors.grey.shade200,
-              ),
-              child: const Icon(Icons.person, color: Colors.grey, size: 16),
+            errorWidget: (_, __, ___) => Container(
+              width: 40,
+              height: 40,
+              color: Colors.grey.shade200,
+              child: const Icon(Icons.person),
             ),
           ),
         ),
@@ -309,111 +315,73 @@ class _PostState extends ConsumerState<Posts> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              username,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-                fontSize: 13,
-              ),
-            ),
-            Text(
-              email,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w300,
-                color: Colors.black87,
-                fontSize: 12,
-              ),
-            ),
+            Text(profile?.fullname ?? "",
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500, fontSize: 13)),
+            Text(profile?.email ?? "",
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w300, fontSize: 12)),
           ],
-        ),
+        )
       ],
     );
   }
 
+  // TITLE FIELD
   Widget _titleField() {
     return TextField(
       controller: titleController,
-      style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w500),
-      cursorHeight: 20,
+      style: GoogleFonts.poppins(fontSize: 15),
       decoration: InputDecoration(
+        hintText: "Title",
         filled: true,
-        fillColor: Theme.of(context).cardColor,
-        hintText: 'Title',
-        hintStyle: GoogleFonts.poppins(fontSize: 13),
-        prefixIconConstraints: const BoxConstraints(minWidth: 48),
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 18.0,
-          horizontal: 12.0,
-        ),
-        enabledBorder: OutlineInputBorder(
+        fillColor: Colors.white,
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.5),
-            width: 1,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.8),
-            width: 1.2,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 1.6),
+          borderSide: BorderSide(color: Colors.grey.shade300),
         ),
       ),
     );
   }
 
+  // BODY FIELD
   Widget _bodyField() {
     return TextField(
       controller: bodyController,
-      maxLines: 8,
-      minLines: 4,
-      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
+      maxLines: 6,
+      style: GoogleFonts.poppins(fontSize: 13),
       decoration: InputDecoration(
         hintText: "What's on your mind?",
-        hintStyle: GoogleFonts.poppins(fontSize: 13),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
         filled: true,
         fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
       ),
     );
   }
 
-  Widget _urlField() {
+  // LINK FIELD
+  Widget _linkField() {
     return TextField(
       controller: linkController,
       style: GoogleFonts.poppins(),
       decoration: InputDecoration(
-        hintText: "Paste your link",
-        hintStyle: GoogleFonts.poppins(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-        prefixIcon: const Icon(Icons.link, size: 18),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
+        hintText: "Paste link",
+        prefixIcon: const Icon(Icons.link),
         filled: true,
         fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
       ),
     );
   }
 
+  // MEDIA PICKER UI
   Widget _mediaPicker() {
     return GestureDetector(
       onTap: pickImage,
@@ -422,36 +390,25 @@ class _PostState extends ConsumerState<Posts> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.grey.shade300),
-          color: Colors.white,
         ),
-
         child: selectedImage != null
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: Image.file(
-                  selectedImage!,
-                  width: double.infinity,
-                  height: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+                child: Image.file(selectedImage!,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover),
               )
             : Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.add_a_photo,
-                      size: 38,
-                      color: Theme.of(context).dividerColor.withOpacity(0.3),
-                    ),
+                    Icon(Icons.add_a_photo,
+                        size: 34, color: Colors.grey.shade400),
                     const SizedBox(height: 6),
-                    Text(
-                      "Add photo",
-                      style: GoogleFonts.poppins(
-                        color: Colors.black54,
-                        fontSize: 14,
-                      ),
-                    ),
+                    Text("Add photo",
+                        style: GoogleFonts.poppins(
+                            color: Colors.black54, fontSize: 14))
                   ],
                 ),
               ),
