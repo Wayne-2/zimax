@@ -172,7 +172,6 @@ void dispose() {
             padding: const EdgeInsets.symmetric(horizontal: 10.0),
             child: Container(
             height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
             decoration: BoxDecoration(
               color: const Color.fromARGB(255, 226, 226, 226),
               borderRadius: BorderRadius.circular(50),
@@ -396,9 +395,9 @@ void dispose() {
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 11,
+                fontSize: 12,
                 color: Colors.black87,
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -457,7 +456,7 @@ void dispose() {
                         style: GoogleFonts.poppins(
                           color: Colors.black87,
                           fontWeight: FontWeight.w500,
-                          fontSize: 13,
+                          fontSize: 14,
                         ),
                       ),
                         const SizedBox(width: 4),
@@ -467,27 +466,26 @@ void dispose() {
                           size: 16,
                         ),
                         const SizedBox(width: 4),
-                        Icon(Icons.circle, size: 4),
+                        Icon(Icons.circle, size: 6),
                         const SizedBox(width: 4),
                         Text(
                           time,
                           style: GoogleFonts.poppins(
                             color: Colors.black87,
                             fontWeight: FontWeight.w400,
-                            fontSize: 11,
+                            fontSize: 13,
                           ),
                         ),
                       ],
                   ),
 
                   const SizedBox(height: 2),
-
                   Text(
                     preview,
                     style: GoogleFonts.poppins(
                       color: Colors.black45,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

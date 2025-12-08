@@ -112,7 +112,7 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       child: Container(
-        height: 45,
+        height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
@@ -124,7 +124,11 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
           decoration: InputDecoration(
             border: InputBorder.none,
             hintText: "Search users",
-            hintStyle: GoogleFonts.poppins(fontSize: 14),
+            hintStyle: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+            prefixIcon: Icon(Icons.manage_search_sharp),
           ),
         ),
       ),

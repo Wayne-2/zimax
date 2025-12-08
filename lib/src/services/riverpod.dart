@@ -74,3 +74,17 @@ final mediaPostsStreamProvider =
 
   return stream;
 });
+
+
+// home page riverpod provider
+
+final zimaxHomePostsProvider = StreamProvider.autoDispose((ref) {
+  final supabase = Supabase.instance.client;
+
+  return supabase
+      .from('media_posts')
+      .stream(primaryKey: ['id'])
+      .eq('posted_to', 'Zimax home')
+      .order('created_at', ascending: false)
+      .map((data) => data.map((e) => MediaPost.fromJson(e)).toList());
+});

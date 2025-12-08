@@ -100,17 +100,14 @@ class _PostsState extends ConsumerState<Posts> {
   try {
     await supabase.from("media_posts").insert(post.toJson());
 
-    // Remove loading snackbar
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-    // Show success
     showSnack("Post published");
 
-  } catch (e) {
-    // Remove loading snackbar
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    resetPostFields();
 
-    // Show error
+  } catch (e) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     showSnack("Insert failed: $e", isError: true);
   }
 }
@@ -120,7 +117,7 @@ void showPostingSnack() {
       elevation: 0,
       backgroundColor: Colors.transparent,
       behavior: SnackBarBehavior.floating,
-      duration: const Duration(days: 1), // stays until manually dismissed
+      duration: const Duration(days: 1),
       content: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -151,6 +148,16 @@ void showPostingSnack() {
     ),
   );
 }
+void resetPostFields() {
+  titleController.clear();
+  bodyController.clear();
+  linkController.clear();
+  selectedImage = null;
+  postType = "text";
+  selectedCommunity = null;
+
+  setState(() {}); // refresh UI
+}
 
 
   void showSnack(String msg, {bool isError = false}) {
@@ -176,7 +183,7 @@ void showPostingSnack() {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(msg, style: GoogleFonts.poppins(fontSize: 14)),
+                child: Text(msg, style: GoogleFonts.poppins(fontSize: 14, color: isError ? Colors.red : Colors.green,)),
               ),
             ],
           ),
@@ -387,7 +394,7 @@ void showPostingSnack() {
   Widget _titleField() {
     return TextField(
       controller: titleController,
-      style: GoogleFonts.poppins(fontSize: 15),
+      style: GoogleFonts.poppins(fontSize: 14),
       decoration: InputDecoration(
         hintText: "Title",
         filled: true,
@@ -411,7 +418,7 @@ void showPostingSnack() {
       maxLines: 6,
       style: GoogleFonts.poppins(fontSize: 13),
       decoration: InputDecoration(
-        hintText: "What's on your mind?",
+        hintText: "Type a post...",
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(

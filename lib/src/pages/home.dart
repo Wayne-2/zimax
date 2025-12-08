@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:zimax/src/components/appdrawer.dart';
 import 'package:zimax/src/components/post_card.dart';
-// import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/components/videotiles.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
@@ -19,9 +18,9 @@ class Home extends ConsumerStatefulWidget {
 class _HomeState extends ConsumerState<Home> {
   @override
   Widget build(BuildContext context) {
-        final user = ref.watch(userProfileProvider);
-        // final username = user!.fullname;
-        // final status = user.status;
+    final postsAsync = ref.watch(zimaxHomePostsProvider);
+    final user = ref.watch(userProfileProvider);
+
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
@@ -29,10 +28,7 @@ class _HomeState extends ConsumerState<Home> {
         backgroundColor: Colors.white,
         title: Text(
           'Zimax',
-          style: GoogleFonts.poppins(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-          ),
+          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
         ),
         actions: [
           ClipRRect(
@@ -42,79 +38,177 @@ class _HomeState extends ConsumerState<Home> {
               width: 30,
               height: 30,
               fit: BoxFit.cover,
-          
-              placeholder: (context, url) => Shimmer.fromColors(
-                baseColor: Colors.grey.shade300,
-                highlightColor: Colors.grey.shade100,
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-              ),
-          
-              errorWidget: (context, url, error) => Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  color: Colors.grey.shade200,
-                ),
-                child: const Icon(
-                  Icons.person,
-                  color: Colors.grey,
-                  size: 16,
-                ),
-              ),
             ),
           ),
           const SizedBox(width: 15),
         ],
-
       ),
+
       backgroundColor: Colors.white,
 
-      body: ListView.builder(
-        itemCount: 50, // Example count
-        itemBuilder: (context, index) {
-          final postCard = PostCard(
-            username: "John Doe",
-            handle: "@johndoe",
-            tweet:
-                "This is a sample tweet UI design built entirely in Flutter. Looks clean!",
-            imageUrl: index % 2 == 0 ? "https://picsum.photos/400/300" : null,
-          );
-
-          // Add VideoTileRow after every 7th post
-          if ((index + 1) % 6 == 0) {
-            return Column(
-              children: [
-                postCard,
-                SizedBox(height: 10),
-                VideoTileRow(
-                  videoThumbnails: [
-                    "https://picsum.photos/400/600",
-                    "https://picsum.photos/401/600",
-                    "https://picsum.photos/402/600",
-                    "https://picsum.photos/403/600",
-                    "https://picsum.photos/404/600",
-                    "https://picsum.photos/405/600",
-                    "https://picsum.photos/406/600",
-                  ],
+      body: postsAsync.when(
+        loading:  () => ListView.builder(
+                  itemCount: 4,
+                  itemBuilder: (_, __) => postShimmer(),
                 ),
-                SizedBox(height: 10),
-              ],
+        error: (err, _) => Center(
+          child: Text("Error: $err", style: GoogleFonts.poppins(fontSize: 14)),
+        ),
+
+        data: (posts) {
+          if (posts.isEmpty) {
+            return Center(
+              child: Text(
+                "No posts yet",
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
             );
           }
 
-          return postCard;
+          return ListView.builder(
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              final post = posts[index];
+
+              final postCard = PostCard(
+                username: post.username,
+                pfp: post.pfp,
+                department: post.department,
+                status: post.status,
+                imageUrl: post.mediaUrl,
+                postcontent: post.content ?? '',
+                like: post.likes.toString(),
+                comment: post.comments.toString(),
+                poll: post.polls.toString(),
+                repost: post.reposts.toString(),
+                createdAt: post.createdAt,
+              );
+
+              // Insert VideoRow after every 6 posts
+              if ((index + 1) % 6 == 0) {
+                return Column(
+                  children: [
+                    postCard,
+                    const SizedBox(height: 10),
+                    VideoTileRow(
+                      videoThumbnails: [
+                        "https://picsum.photos/400/600",
+                        "https://picsum.photos/401/600",
+                        "https://picsum.photos/402/600",
+                      ],
+                    ),
+                  ],
+                );
+              }
+
+              return postCard;
+            },
+          );
         },
       ),
     );
   }
+}
+Widget postShimmer() {
+  return Shimmer.fromColors(
+    baseColor: Colors.grey.shade300,
+    highlightColor: Colors.grey.shade100,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+
+          // ------------------ HEADER ------------------
+          Row(
+            children: [
+              // Profile picture shimmer
+              Container(
+                width: 35,
+                height: 35,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(35),
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // Name + department + date
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 120,
+                    height: 12,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 160,
+                    height: 12,
+                    color: Colors.white,
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // ------------------ IMAGE ------------------
+          Container(
+            height: 300,
+            width: double.infinity,
+            color: Colors.white,
+          ),
+
+          const SizedBox(height: 16),
+
+          // ------------------ TEXT CONTENT ------------------
+          Container(
+            width: double.infinity,
+            height: 12,
+            color: Colors.white,
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            height: 12,
+            color: Colors.white,
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: 200,
+            height: 12,
+            color: Colors.white,
+          ),
+
+          const SizedBox(height: 16),
+
+          // ------------------ ACTION ICONS ------------------
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _iconShimmer(),
+              _iconShimmer(),
+              _iconShimmer(),
+              _iconShimmer(),
+              _iconShimmer(),
+              _iconShimmer(),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _iconShimmer() {
+  return Container(
+    width: 24,
+    height: 24,
+    color: Colors.white,
+  );
 }
 
 // Icon _getStatusIcon(String status) {
