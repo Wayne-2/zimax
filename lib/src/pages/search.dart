@@ -20,34 +20,55 @@ class _SearchState extends ConsumerState<Search> {
 
   List recentSearches = [];
   List<Map<String, dynamic>> results = [];
+  List<Map<String, dynamic>> userResults = [];
   bool loading = false;
 
-  Future<void> search(String query) async {
-    final q = query.trim();
+Future<void> search(String query) async {
+  final q = query.trim();
 
-    if (q.isEmpty) {
-      setState(() => results = []);
-      return;
-    }
-
-    setState(() => loading = true);
-
-    try {
-      final response = await supabase
-          .from('media_posts')
-          .select()
-          .or('title.ilike.%$q%,content.ilike.%$q%')
-          .order('created_at', ascending: false);
-
-      setState(() {
-        results = List<Map<String, dynamic>>.from(response);
-      });
-    } catch (e) {
-      setState(() => results = []);
-    } finally {
-      setState(() => loading = false);
-    }
+  if (q.isEmpty) {
+    setState(() {
+      results = [];
+      userResults = [];
+    });
+    return;
   }
+
+  setState(() => loading = true);
+
+  try {
+
+    final postsFuture = supabase
+        .from('media_posts')
+        .select()
+        .or('title.ilike.%$q%,content.ilike.%$q%, media_url.ilike.%$q%')
+        .order('created_at', ascending: false);
+
+    final usersFuture = supabase
+        .from('user_profile')
+        .select()
+        .or(
+          'fullname.ilike.%$q%,email.ilike.%$q%,status.ilike.%$q%,profile_image_url.ilike.%$q%',
+        )
+        .order('created_at', ascending: false);
+
+    final responses = await Future.wait([postsFuture, usersFuture]);
+
+    setState(() {
+      results = List<Map<String, dynamic>>.from(responses[0]);
+      userResults = List<Map<String, dynamic>>.from(responses[1]);
+    });
+  } catch (e) {
+    debugPrint("Search error: $e");
+
+    setState(() {
+      results = [];
+      userResults = [];
+    });
+  } finally {
+    setState(() => loading = false);
+  }
+}
 
   Future<void> saveSearch(String query) async {
     final cleaned = query.trim();
@@ -210,20 +231,112 @@ class _SearchState extends ConsumerState<Search> {
           else if (results.isEmpty)
             const Expanded(child: Center(child: Text("No results found")))
           else
-            Expanded(
-              child: ListView.builder(
-                itemCount: results.length,
-                itemBuilder: (_, index) {
-                  final post = results[index];
-                  return ListTile(
-                    title: Text(post['title'] ?? ""),
-                    subtitle: Text(post['content'] ?? ""),
-                  );
-                },
-              ),
+     Expanded(
+       child: ListView(
+         padding: const EdgeInsets.only(bottom: 20),
+         children: [
+
+        if (results.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              "Posts",
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
+          ),
+
+          ...results.map((post) {
+            return ListTile(
+              leading: Container(
+                width: 80,
+                height: 60,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  image: DecorationImage(image: (post["media_url"] != null &&
+                            post["media_url"].isNotEmpty)
+                        ? NetworkImage(post["media_url"])
+                        : const NetworkImage("https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/media/zimaxpfp.png"),
+                        fit: BoxFit.cover)
+                ),
+              ),
+              title: Text(post['title'] ?? "", 
+                style: GoogleFonts.poppins(
+                fontSize: 13, fontWeight: FontWeight.w500),),
+              subtitle: Text(post['content'] ?? "",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                  fontSize: 12, fontWeight: FontWeight.w400),),
+            );
+          }),
         ],
+
+        const SizedBox(height: 10),
+
+        if (userResults.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              "Users",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          ...userResults.map((profile) {
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundImage: (profile["profile_image_url"] != null &&
+                        profile["profile_image_url"].isNotEmpty)
+                    ? NetworkImage(profile["profile_image_url"])
+                    : const NetworkImage("https://i.pravatar.cc/150?img=3"),
+              ),
+
+              title: Row(
+                children: [
+                  Text(
+                    profile["fullname"] ?? "Unknown User",
+                    style: GoogleFonts.poppins(
+                        fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusIcon(profile["status"] ?? ""),
+                ],
+              ),
+
+              subtitle: Text(
+                profile["email"] ?? "No email",
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: Colors.black45),
+              ),
+            );
+          }),
+        ],
+
+        if (results.isEmpty && userResults.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: Text("No results found")),
+          ),
+      ],
+    ),
+  )]
+,
       ),
     );
   }
 }
+
+  Icon _buildStatusIcon(String status) {
+    switch (status) {
+      case "Student":
+        return const Icon(Icons.school, size: 18, color: Colors.blue);
+      case "Academic Staff":
+        return const Icon(Icons.star, size: 18, color: Colors.amber);
+      case "Non-Academic Staff":
+        return const Icon(Icons.work, size: 18, color: Colors.red);
+      case "Admin":
+        return const Icon(Icons.verified, size: 18, color: Colors.green);
+      default:
+        return const Icon(Icons.person, size: 18, color: Colors.grey);
+    }
+  }
