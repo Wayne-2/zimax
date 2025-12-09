@@ -82,11 +82,12 @@ final zimaxHomePostsProvider = StreamProvider.autoDispose<List<MediaPost>>((ref)
 
   List<MediaPost> cache = [];
 
+  // Initial fetch
   supabase
       .from('media_posts')
       .select()
       .eq('posted_to', 'Zimax home')
-      .order('created_at', ascending: false)
+      .order('created_at', ascending: true) 
       .then((rows) {
         cache = rows.map((e) => MediaPost.fromJson(e)).toList();
         controller.add(cache);
@@ -94,6 +95,7 @@ final zimaxHomePostsProvider = StreamProvider.autoDispose<List<MediaPost>>((ref)
       // ignore: invalid_return_type_for_catch_error
       .catchError((e, st) => controller.addError(e, st));
 
+  // Realtime updates
   final subscription = supabase
       .from('media_posts')
       .stream(primaryKey: ['id'])
@@ -106,14 +108,15 @@ final zimaxHomePostsProvider = StreamProvider.autoDispose<List<MediaPost>>((ref)
           if (index != -1) {
             cache[index] = post;
           } else {
-            cache.insert(0, post);
+            cache.add(post);
           }
         }
 
+        // 👇 Always maintain correct order
+        cache.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
         controller.add(List<MediaPost>.from(cache));
-      }, onError: (e, st) {
-        controller.addError(e, st);
-      });
+      }, onError: (e, st) => controller.addError(e, st));
 
   ref.onDispose(() {
     subscription.cancel();

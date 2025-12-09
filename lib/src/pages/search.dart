@@ -1,212 +1,185 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:zimax/src/components/carousel.dart';
+import 'package:zimax/src/services/riverpod.dart';
 
-class Search extends StatefulWidget {
+class Search extends ConsumerStatefulWidget {
   const Search({super.key});
 
   @override
-  State<Search> createState() => _SearchState();
+  ConsumerState<Search> createState() => _SearchState();
 }
 
-class _SearchState extends State<Search> {
-  final searchController = TextEditingController();
-  List<String> recent = ["Flutter", "Supabase", "AI", "Zimax"];
-  List<String> results = [];
+class _SearchState extends ConsumerState<Search> {
+  final supabase = Supabase.instance.client;
+  final TextEditingController searchController = TextEditingController();
+  List<Map<String, dynamic>> results = [];
+  bool loading = false;
+
+  Future<void> search(String query) async {
+    if (query.isEmpty) {
+      setState(() => results = []);
+      return;
+    }
+
+    setState(() => loading = true);
+
+    try {
+      final response = await supabase
+          .from('media_posts')
+          .select()
+          .or(
+            'title.ilike.%$query%,content.ilike.%$query%',
+          )
+          .order('created_at', ascending: false);
+
+      setState(() {
+        results = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      debugPrint("Search error: $e");
+      setState(() => results = []);
+    } finally {
+      setState(() => loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final query = searchController.text.trim();
-
+    final user = ref.watch(userProfileProvider);
+    final hasTyped = searchController.text.trim().isNotEmpty;
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: Text(
-          "Search",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+        title:Container(
+         padding: const EdgeInsets.symmetric(horizontal: 10.0),
+         height: 40,
+         decoration: BoxDecoration(
+           color: const Color.fromARGB(255, 235, 235, 235),
+           borderRadius: BorderRadius.circular(50),
+         ),
+         child: TextField(
+           controller: searchController,
+           decoration: InputDecoration(
+             border: InputBorder.none,
+             hintText: 'Search zimax',
+             // contentPadding: EdgeInsets.zero,
+             hintStyle: GoogleFonts.poppins(
+               fontSize: 13,
+               fontWeight: FontWeight.w500,
+             ),
+             prefixIcon: Icon(Icons.manage_search_sharp),
+           ),
+           onChanged: (value) {
+            search(value);
+           },
+         ),
+        ),
+        actions: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: CachedNetworkImage(
+              imageUrl: user!.pfp,
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+
+              placeholder: (context, url) => Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+              ),
+
+              errorWidget: (context, url, error) => Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  color: Colors.grey.shade200,
+                ),
+                child: const Icon(Icons.person, color: Colors.grey, size: 16),
+              ),
+            ),
+          ),
+          const SizedBox(width: 15),
+        ],
+      ),
+      body: Column(
+        children: [
+         
+          // const SizedBox(height: 16),
+      
+          // Results
+          // UI States
+            if (!hasTyped)
+      // BEFORE SEARCH
+      Expanded(
+        child: Column(
+          children: [
+            GradientCarousel(
+              images: [
+                "https://picsum.photos/400/250",
+                "https://picsum.photos/401/250",
+                "https://picsum.photos/402/250",
+              ],
+              titles: [
+                "Welcome to Zimax",
+                "Discover Trending Posts",
+                "Engage With Your Community",
+              ],
+            ),
+          ],
+        )
+      )
+            else if (loading)
+      // LOADING
+      const Expanded(
+        child: Center(child: CircularProgressIndicator()),
+      )
+            else if (results.isEmpty)
+      // NO RESULTS
+      const Expanded(
+        child: Center(
+          child: Text(
+            "No results found",
+            style: TextStyle(color: Colors.grey),
           ),
         ),
+      )
+            else
+      // SHOW RESULTS
+      Expanded(
+        child: ListView.builder(
+          itemCount: results.length,
+          itemBuilder: (context, index) {
+            final post = results[index];
+            return ListTile(
+              title: Text(post['title'] ?? ""),
+              subtitle: Text(post['content'] ?? ""),
+            );
+          },
+        ),
       ),
-
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-
-        children: [
-          _searchBar(),
-
-          const SizedBox(height: 20),
-
-          if (query.isEmpty) ...[
-            _recentSection(),
-            const SizedBox(height: 20),
-            _trendingSection(),
-          ] else ...[
-            _resultSection(),
-          ],
         ],
       ),
     );
   }
-
-  /// ✅ Search bar
-  Widget _searchBar() {
-    return TextField(
-      controller: searchController,
-      onChanged: (_) => setState(() {}),
-      style: GoogleFonts.poppins(fontSize: 14),
-      decoration: InputDecoration(
-        hintText: "Search X",
-        hintStyle: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
-        filled: true,
-        fillColor: Colors.grey.shade200,
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(25),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
-
-  /// ✅ Recent search list
-  Widget _recentSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Recent",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        Wrap(
-          spacing: 10,
-          runSpacing: 8,
-          children: recent.map((item) {
-            return Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                item,
-                style: GoogleFonts.poppins(fontSize: 13),
-              ),
-            );
-          }).toList(),
-        )
-      ],
-    );
-  }
-
-  /// ✅ Trending section
-  Widget _trendingSection() {
-    final trends = [
-      "Flutter 4.0",
-      "AI Agents",
-      "Supabase Realtime",
-      "Zimax App",
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Trending",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        ...trends.map((t) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    t,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios,
-                    size: 14, color: Colors.grey),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  /// ✅ Search results section
-  Widget _resultSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Results",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        ...List.generate(8, (i) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.grey.shade300,
-                ),
-
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "User $i",
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        "@username$i",
-                        style: GoogleFonts.poppins(
-                            fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          );
-        })
-      ],
-    );
-  }
 }
+
