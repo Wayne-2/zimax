@@ -71,7 +71,6 @@ class _GradientCarouselState extends State<GradientCarousel> {
                     ),
                   ),
                 ),
-
                 // TEXT
                 Positioned(
                   left: 16,
@@ -90,9 +89,7 @@ class _GradientCarouselState extends State<GradientCarousel> {
             );
           },
         ),
-
         const SizedBox(height: 10),
-
         // DOT INDICATOR
         Row(
           mainAxisAlignment: MainAxisAlignment.center,

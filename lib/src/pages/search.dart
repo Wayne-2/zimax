@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:zimax/src/components/carousel.dart';
+import 'package:zimax/src/pages/extrapage.dart/placeholdersearchpage.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
 class Search extends ConsumerStatefulWidget {
@@ -17,11 +17,15 @@ class Search extends ConsumerStatefulWidget {
 class _SearchState extends ConsumerState<Search> {
   final supabase = Supabase.instance.client;
   final TextEditingController searchController = TextEditingController();
+
+  List recentSearches = [];
   List<Map<String, dynamic>> results = [];
   bool loading = false;
 
   Future<void> search(String query) async {
-    if (query.isEmpty) {
+    final q = query.trim();
+
+    if (q.isEmpty) {
       setState(() => results = []);
       return;
     }
@@ -32,20 +36,107 @@ class _SearchState extends ConsumerState<Search> {
       final response = await supabase
           .from('media_posts')
           .select()
-          .or(
-            'title.ilike.%$query%,content.ilike.%$query%',
-          )
+          .or('title.ilike.%$q%,content.ilike.%$q%')
           .order('created_at', ascending: false);
 
       setState(() {
         results = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      debugPrint("Search error: $e");
       setState(() => results = []);
     } finally {
       setState(() => loading = false);
     }
+  }
+
+  Future<void> saveSearch(String query) async {
+    final cleaned = query.trim();
+
+    // if (cleaned.length < 5) return;
+
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    // check duplicate
+    final existing = await supabase
+        .from('recent_searches')
+        .select()
+        .eq('user_id', user.id)
+        .eq('query', cleaned)
+        .maybeSingle();
+
+    if (existing != null) {
+      // update timestamp
+      await supabase
+          .from('recent_searches')
+          .update({'searched_at': DateTime.now().toIso8601String()})
+          .eq('id', existing['id']);
+    } else {
+      // add new entry
+      await supabase.from('recent_searches').insert({
+        'user_id': user.id,
+        'query': cleaned,
+      });
+    }
+
+    // limit to 10
+    final history = await supabase
+        .from('recent_searches')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('searched_at', ascending: false);
+
+    if (history.length > 10) {
+      final idsToDelete = history.skip(10).map((e) => e['id']).toList();
+
+      for (final id in idsToDelete) {
+        await supabase.from('recent_searches').delete().eq('id', id);
+      }
+    }
+    loadRecent();
+  }
+
+  Future<void> loadRecent() async {
+    final user = supabase.auth.currentUser;
+
+    if (user == null) {
+      setState(() => recentSearches = []);
+      return;
+    }
+
+    final response = await supabase
+        .from('recent_searches')
+        .select()
+        .eq('user_id', user.id)
+        .order('searched_at', ascending: false);
+
+    setState(() {
+      recentSearches = List<Map<String, dynamic>>.from(response);
+    });
+  }
+
+  void handleChipTap(String query) {
+    searchController.text = query;
+    search(query);
+  }
+
+  Future<void> handleChipDelete(String query) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    await supabase
+        .from('recent_searches')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('query', query);
+
+    await loadRecent();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadRecent();
   }
 
   @override
@@ -58,32 +149,38 @@ class _SearchState extends ConsumerState<Search> {
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider);
     final hasTyped = searchController.text.trim().isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title:Container(
-         padding: const EdgeInsets.symmetric(horizontal: 10.0),
-         height: 40,
-         decoration: BoxDecoration(
-           color: const Color.fromARGB(255, 235, 235, 235),
-           borderRadius: BorderRadius.circular(50),
-         ),
-         child: TextField(
-           controller: searchController,
-           decoration: InputDecoration(
-             border: InputBorder.none,
-             hintText: 'Search zimax',
-             // contentPadding: EdgeInsets.zero,
-             hintStyle: GoogleFonts.poppins(
-               fontSize: 13,
-               fontWeight: FontWeight.w500,
-             ),
-             prefixIcon: Icon(Icons.manage_search_sharp),
-           ),
-           onChanged: (value) {
-            search(value);
-           },
-         ),
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color.fromARGB(255, 235, 235, 235),
+            borderRadius: BorderRadius.circular(50),
+          ),
+          child: TextField(
+            controller: searchController,
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              hintText: "Search zimax",
+              hintStyle: GoogleFonts.poppins(fontSize: 13),
+              suffixIcon: GestureDetector(
+                onTap: () {
+                  final q = searchController.text.trim();
+                  search(q);
+                  saveSearch(q);
+                },
+                child: const Icon(Icons.manage_search_sharp),
+              ),
+            ),
+            onChanged: (_) {
+              final q = searchController.text.trim();
+              search(q);
+              setState(() {});
+            },
+          ),
         ),
         actions: [
           ClipRRect(
@@ -93,93 +190,40 @@ class _SearchState extends ConsumerState<Search> {
               width: 30,
               height: 30,
               fit: BoxFit.cover,
-
-              placeholder: (context, url) => Shimmer.fromColors(
+              placeholder: (_, __) => Shimmer.fromColors(
                 baseColor: Colors.grey.shade300,
                 highlightColor: Colors.grey.shade100,
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-              ),
-
-              errorWidget: (context, url, error) => Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  color: Colors.grey.shade200,
-                ),
-                child: const Icon(Icons.person, color: Colors.grey, size: 16),
+                child: Container(width: 30, height: 30),
               ),
             ),
           ),
           const SizedBox(width: 15),
         ],
       ),
+
       body: Column(
         children: [
-         
-          // const SizedBox(height: 16),
-      
-          // Results
-          // UI States
-            if (!hasTyped)
-      // BEFORE SEARCH
-      Expanded(
-        child: Column(
-          children: [
-            GradientCarousel(
-              images: [
-                "https://picsum.photos/400/250",
-                "https://picsum.photos/401/250",
-                "https://picsum.photos/402/250",
-              ],
-              titles: [
-                "Welcome to Zimax",
-                "Discover Trending Posts",
-                "Engage With Your Community",
-              ],
+          if (!hasTyped)
+            Expanded(child: Placeholdersearchpage())
+          else if (loading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (results.isEmpty)
+            const Expanded(child: Center(child: Text("No results found")))
+          else
+            Expanded(
+              child: ListView.builder(
+                itemCount: results.length,
+                itemBuilder: (_, index) {
+                  final post = results[index];
+                  return ListTile(
+                    title: Text(post['title'] ?? ""),
+                    subtitle: Text(post['content'] ?? ""),
+                  );
+                },
+              ),
             ),
-          ],
-        )
-      )
-            else if (loading)
-      // LOADING
-      const Expanded(
-        child: Center(child: CircularProgressIndicator()),
-      )
-            else if (results.isEmpty)
-      // NO RESULTS
-      const Expanded(
-        child: Center(
-          child: Text(
-            "No results found",
-            style: TextStyle(color: Colors.grey),
-          ),
-        ),
-      )
-            else
-      // SHOW RESULTS
-      Expanded(
-        child: ListView.builder(
-          itemCount: results.length,
-          itemBuilder: (context, index) {
-            final post = results[index];
-            return ListTile(
-              title: Text(post['title'] ?? ""),
-              subtitle: Text(post['content'] ?? ""),
-            );
-          },
-        ),
-      ),
         ],
       ),
     );
   }
 }
-
