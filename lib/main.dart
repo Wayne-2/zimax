@@ -3,12 +3,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/auth/signin.dart';
+import 'package:zimax/src/models/chatitem_hive.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+    WidgetsFlutterBinding.ensureInitialized();
+
+  final dir = await getApplicationDocumentsDirectory();
+
+  await Hive.initFlutter(dir.path);
+
+  Hive.registerAdapter(ChatItemHiveAdapter());
+
+  await Hive.openBox<ChatItemHive>('chatlist');
 
   await Supabase.initialize(
     url: 'https://kldaeoljhumowuegwjyq.supabase.co',

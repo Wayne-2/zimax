@@ -2,10 +2,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive/hive.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:zimax/src/components/chatroom.dart';
 import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/models/chatitem.dart';
+import 'package:zimax/src/models/chatitem_hive.dart';
 import 'package:zimax/src/pages/extrapage.dart/addchat.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
@@ -18,20 +20,44 @@ class Chat extends ConsumerStatefulWidget {
 
 class _ChatState extends ConsumerState<Chat>
     with TickerProviderStateMixin {
+      late Box<ChatItemHive> chatBox;
 
-  List<ChatItem> chats = [
-    // ChatItem(
-    //   name: "nextjsnews",
-    //   preview: "New update just dropped.",
-    //   avatar: "https://i.pravatar.cc/200?img=5",
-    //   time: "2w ago",
-    // ),
-  ];
-    void addChatToList(ChatItem item) {
+      List<ChatItemHive> chats = [];
+
+  // List<ChatItem> chats = [
+  //   // ChatItem(
+  //   //   name: "nextjsnews",
+  //   //   preview: "New update just dropped.",
+  //   //   avatar: "https://i.pravatar.cc/200?img=5",
+  //   //   time: "2w ago",
+  //   // ),
+  // ];
+  //   void addChatToList(ChatItem item) {
+  //   setState(() {
+  //     chats.removeWhere((c) => c.name == item.name); // no duplicates
+  //     chats.insert(0, item as ChatItemHive); 
+  //   });
+  // }
+
+  void addChatToList(ChatItem item) {
+    final hiveItem = ChatItemHive(
+      name: item.name,
+      preview: item.preview,
+      avatar: item.avatar,
+      time: item.time,
+      online: item.online,
+    );
+
     setState(() {
-      chats.removeWhere((c) => c.name == item.name); // no duplicates
-      chats.insert(0, item); 
+      // remove duplicate if exists
+      chats.removeWhere((c) => c.name == hiveItem.name);
+
+      // add new chat to top
+      chats.insert(0, hiveItem);
     });
+
+    chatBox.clear(); // clear old list
+    chatBox.addAll(chats); // store updated list
   }
 
 late AnimationController _introController;
@@ -45,6 +71,10 @@ late Animation<double> pulse;
 @override
 void initState() {
   super.initState();
+
+    chatBox = Hive.box<ChatItemHive>('chatlist');
+
+    chats = chatBox.values.toList();
 
   _introController = AnimationController(
     vsync: this,
