@@ -19,6 +19,20 @@ class Chat extends ConsumerStatefulWidget {
 class _ChatState extends ConsumerState<Chat>
     with TickerProviderStateMixin {
 
+  List<ChatItem> chats = [
+    // ChatItem(
+    //   name: "nextjsnews",
+    //   preview: "New update just dropped.",
+    //   avatar: "https://i.pravatar.cc/200?img=5",
+    //   time: "2w ago",
+    // ),
+  ];
+    void addChatToList(ChatItem item) {
+    setState(() {
+      chats.removeWhere((c) => c.name == item.name); // no duplicates
+      chats.insert(0, item); 
+    });
+  }
 
 late AnimationController _introController;
 late AnimationController _pulseController;
@@ -76,43 +90,20 @@ void dispose() {
   _pulseController.dispose();
   super.dispose();
 }
+  Future<void> openSearch() async {
+    final ChatItem? result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AddChatPage()),
+    );
 
+    if (result != null) {
+      addChatToList(result);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider);
-
-    final List<ChatItem> chats = [
-        ChatItem(
-          name: "elonmusk",
-          preview: "Sure, send it.",
-          avatar: "https://i.pravatar.cc/200?img=2",
-          time: "22m ago",
-          verified: true,
-          online: true,
-        ),
-        ChatItem(
-          name: "flutterdev",
-          preview: "We’ll check and respond.",
-          avatar: "https://i.pravatar.cc/200?img=11",
-          time: "30m ago",
-        ),
-        ChatItem(
-          name: "sundarpichai",
-          preview: "Thanks!",
-          avatar: "https://i.pravatar.cc/200?img=12",
-          time: "2m ago",
-          verified: true,
-        ),
-        ChatItem(
-          name: "nextjsnews",
-          preview: "New update just dropped.",
-          avatar: "https://i.pravatar.cc/200?img=5",
-          time: "2w ago",
-        ),
-      ];
-
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -248,32 +239,51 @@ void dispose() {
             ],
           ),
         ),
-        
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.zero,
-            itemCount: chats.length,
-            itemBuilder: (context, index) {
-              final chat = chats[index];
-        
-              return _chatTile(
-                name: chat.name,
-                preview: chat.preview,
-                avatar: chat.avatar,
-                time: chat.time,
-                online: chat.online,
-                ontap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => Chatroom(username: chat.name),
-                    ),
-                  );
-                },
-              );
-            },
+          child:chats.isEmpty
+          ? Center(
+              child: Text(
+                "Tap on New to start conversation",
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            )
+      : Column(
+        children: [
+
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: chats.length,
+              itemBuilder: (context, index) {
+                final chat = chats[index];
+
+                return _chatTile(
+                  name: chat.name,
+                  preview: chat.preview,
+                  avatar: chat.avatar,
+                  time: chat.time,
+                  online: chat.online,
+                  ontap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => Chatroom(username: chat.name),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
-        ),]),
+        ],
+      ),
+    )
+        ]),
 
 
         floatingActionButton: Container(
@@ -296,17 +306,7 @@ void dispose() {
             },
           
             child: GestureDetector(
-              onTap: () async {
-                  final selected = await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AddChatPage()),
-                  );
-          
-                  if (selected != null) {
-                    print("Start chat with: $selected");
-          
-                }
-              },
+              onTap: openSearch,
               child: Container(
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -401,95 +401,94 @@ void dispose() {
     );
   }
 
-  Widget _chatTile({
-    required String name,
-    required String preview,
-    required String avatar,
-    required String time,
-    required VoidCallback ontap,
-    bool online = false,
-  }) {
-    return GestureDetector(
-      onTap: ontap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.black12, width: .4)),
-        ),
-        child: Row(
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(radius: 20, backgroundImage: NetworkImage(avatar)),
-                if (online)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      width: 11,
-                      height: 11,
-                      decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 0, 60, 188),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
+
+}
+
+Widget _chatTile({
+  required String name,
+  required String preview,
+  required String avatar,
+  required String time,
+  required VoidCallback ontap,
+  bool online = false,
+}) {
+  return GestureDetector(
+    onTap: ontap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.black12, width: .4)),
+      ),
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(radius: 20, backgroundImage: NetworkImage(avatar)),
+              if (online)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 11,
+                    height: 11,
+                    decoration: BoxDecoration(
+                      color: Color.fromARGB(255, 0, 60, 188),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white, width: 2),
                     ),
                   ),
+                ),
+            ],
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      name,
+                      style: GoogleFonts.poppins(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.school, color: Color.fromARGB(255, 0, 35, 192), size: 16),
+                    const SizedBox(width: 4),
+                    Icon(Icons.circle, size: 6),
+                    const SizedBox(width: 4),
+                    Text(
+                      time,
+                      style: GoogleFonts.poppins(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w400,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 2),
+                Text(
+                  preview,
+                  style: GoogleFonts.poppins(
+                    color: Colors.black45,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
-
-            const SizedBox(width: 12),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        name,
-                        style: GoogleFonts.poppins(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.school,
-                          color: Color.fromARGB(255, 0, 35, 192),
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(Icons.circle, size: 6),
-                        const SizedBox(width: 4),
-                        Text(
-                          time,
-                          style: GoogleFonts.poppins(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w400,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                  ),
-
-                  const SizedBox(height: 2),
-                  Text(
-                    preview,
-                    style: GoogleFonts.poppins(
-                      color: Colors.black45,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
+

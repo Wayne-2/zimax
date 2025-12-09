@@ -171,7 +171,7 @@ class _PlaceholdersearchpageState extends ConsumerState<Placeholdersearchpage> {
                             height: 80,
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(35),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
                         ),
@@ -180,7 +180,7 @@ class _PlaceholdersearchpageState extends ConsumerState<Placeholdersearchpage> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(15),
+                            borderRadius: BorderRadius.circular(8),
                             color: Colors.grey.shade200,
                           ),
                           child: const Icon(

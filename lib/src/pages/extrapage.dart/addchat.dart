@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zimax/src/models/chatitem.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
 
@@ -17,7 +18,33 @@ class AddChatPage extends ConsumerStatefulWidget {
 class _AddChatPageState extends ConsumerState<AddChatPage> {
   final TextEditingController _search = TextEditingController();
   String query = "";
+  final supabase = Supabase.instance.client;
+  bool loading = false;
+  Future<void> search(String query) async {
+  final q = query.trim();
 
+  setState(() => loading = true);
+
+  try {
+
+
+    final usersFuture = supabase
+        .from('user_profile')
+        .select()
+        .or(
+          'fullname.ilike.%$q%,email.ilike.%$q%,status.ilike.%$q%,profile_image_url.ilike.%$q%',
+        )
+        .order('created_at', ascending: false);
+
+    await Future.wait([ usersFuture]);
+
+
+  } catch (e) {
+    debugPrint("Search error: $e");
+  } finally {
+    setState(() => loading = false);
+  }
+}
   @override
   Widget build(BuildContext context) {
     final usersAsync = ref.watch(userServiceStreamProvider);
@@ -50,16 +77,21 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
 
           const SizedBox(height: 12),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              "Available on Zimax",
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  "Available on Zimax",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
 
           const SizedBox(height: 6),
@@ -179,13 +211,22 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
         user["email"] ?? "No email",
         style: GoogleFonts.poppins(
           fontSize: 12,
+          fontWeight: FontWeight.normal,
           color: Colors.black45,
         ),
       ),
+        onTap: () {
+          final chatItem = ChatItem(
+            name: user["fullname"],
+            preview: "Start a conversation",
+            avatar: user["profile_image_url"] ?? "",
+            time: "now",
+            verified: user["status"] == "verified",
+            online: user["status"] == "online",
+          );
 
-      onTap: () {
-        Navigator.pop(context, user["username"]);
-      },
+          Navigator.pop(context, chatItem);
+        }
     );
   }
 
