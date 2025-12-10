@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,6 +17,25 @@ class Home extends ConsumerStatefulWidget {
 }
 
 class _HomeState extends ConsumerState<Home> {
+  @override
+  void initState() {
+    super.initState();
+    handleInitialMessage();
+  }
+
+  void handleInitialMessage() async {
+    RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
+
+    if (initialMessage != null) {
+      print("Opened From TERMINATED by tapping notification");
+
+      // Example: navigate to chat screen
+      // Navigator.push(context, MaterialPageRoute(
+      //   builder: (_) => ChatScreen(chatId: initialMessage.data['chat_id']),
+      // ));
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final postsAsync = ref.watch(zimaxHomePostsProvider);

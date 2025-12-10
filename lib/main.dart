@@ -1,6 +1,11 @@
+// ignore_for_file: avoid_print
+
 import 'dart:ui';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
@@ -11,10 +16,73 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/auth/signin.dart';
 import 'package:zimax/src/models/chatitem_hive.dart';
 
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print("Background Message: ${message.messageId}");
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-    WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  String? token = await FirebaseMessaging.instance.getToken();
+  print("FCM Token: $token");
+
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print("Foreground message: ${message.notification?.title}");
+  });
+
+  FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    print("Opened from notification");
+  });
+
+  RemoteMessage? initialMessage = await FirebaseMessaging.instance
+      .getInitialMessage();
+
+  if (initialMessage != null) {
+    print("App opened from terminated state via notification");
+    print("Title: ${initialMessage.notification?.title}");
+  }
+
+  final FlutterLocalNotificationsPlugin notifications =
+      FlutterLocalNotificationsPlugin();
+
+  await notifications.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(),
+    ),
+  );
+
+  FirebaseMessaging.onMessage.listen((message) {
+    notifications.show(
+      0,
+      message.notification?.title,
+      message.notification?.body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'channel_id',
+          'General Notifications',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
+  });
+  final supabase = Supabase.instance.client;
+  await supabase.from('device_tokens').upsert({
+    'user_id': supabase.auth.currentUser!.id,
+    'token': token,
+  });
 
   final dir = await getApplicationDocumentsDirectory();
 
@@ -52,7 +120,10 @@ class _ZimaxState extends State<Zimax> {
     // Wait 5 seconds then navigate
     Future.delayed(const Duration(seconds: 6), () {
       if (mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => Signin()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => Signin()),
+        );
       }
     });
   }
@@ -65,8 +136,6 @@ class _ZimaxState extends State<Zimax> {
         statusBarIconBrightness: Brightness.dark,
       ),
     );
-
-
 
     final size = MediaQuery.of(context).size;
 
