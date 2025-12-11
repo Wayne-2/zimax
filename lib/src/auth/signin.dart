@@ -57,6 +57,8 @@ void login() async {
 
     final profile = Userprofile.fromJson(profileResponse);
     (ref.read(userProfileProvider.notifier) as dynamic).state = profile;
+    // ref.invalidate(userProfileProvider);
+
 
     // Success popup
     _showAlertDialog(

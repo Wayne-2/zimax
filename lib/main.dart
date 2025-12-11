@@ -86,6 +86,7 @@ void main() async {
       // Initialize Hive
   await Hive.initFlutter();
   Hive.registerAdapter(ChatItemHiveAdapter());
+  await Hive.openBox('settings');
   await Hive.openBox<ChatItemHive>('chatBox');
 
   

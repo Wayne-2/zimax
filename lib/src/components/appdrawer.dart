@@ -2,9 +2,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+// import 'package:hive/hive.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/appbar/profile.dart';
+import 'package:zimax/src/auth/signin.dart';
 import 'package:zimax/src/components/svgicon.dart';
+// import 'package:zimax/src/models/chat_item_hive.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
 class AppDrawer extends ConsumerStatefulWidget {
@@ -152,7 +156,15 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
                     color: Colors.redAccent,
                   ),
                 ),
-                onTap: () {},
+                onTap: () async {
+                  // await Hive.box<ChatItemHive>('chatBox').clear();
+                  // await Hive.box('settings').delete('last_uid');
+                  await Supabase.instance.client.auth.signOut();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => Signin()),
+                  );
+                },
               ),
             ),
           ],
@@ -191,13 +203,29 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
 Icon _getStatusIcon(String status) {
   switch (status) {
     case "Student":
-      return const Icon(Icons.school, size: 18, color: Color.fromARGB(255, 0, 0, 254));
+      return const Icon(
+        Icons.school,
+        size: 18,
+        color: Color.fromARGB(255, 0, 0, 254),
+      );
     case "Academic Staff":
-      return const Icon(Icons.star, size: 18, color: Color.fromARGB(255, 255, 208, 0));
+      return const Icon(
+        Icons.star,
+        size: 18,
+        color: Color.fromARGB(255, 255, 208, 0),
+      );
     case "Non-Academic Staff":
-      return const Icon(Icons.work, size: 18, color: Color.fromARGB(255, 255, 0, 0));
+      return const Icon(
+        Icons.work,
+        size: 18,
+        color: Color.fromARGB(255, 255, 0, 0),
+      );
     case "Admin":
-      return const Icon(Icons.verified, size: 18, color: Color.fromARGB(255, 2, 145, 19));
+      return const Icon(
+        Icons.verified,
+        size: 18,
+        color: Color.fromARGB(255, 2, 145, 19),
+      );
     default:
       return const Icon(Icons.person, size: 18, color: Colors.grey);
   }

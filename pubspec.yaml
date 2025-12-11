@@ -37,6 +37,7 @@ dependencies:
   flutter_local_notifications: ^19.5.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  collection: ^1.17.0
 
 
 dev_dependencies:
@@ -70,6 +71,7 @@ flutter:
     - assets/logo.png
     - assets/nopfp.png
     - assets/logodark.png
+    - assets/app_bg.png
     - assets/images/img2.png
     - assets/images/img3.png
     - assets/images/img4.png

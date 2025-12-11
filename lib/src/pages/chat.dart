@@ -303,7 +303,7 @@ Widget _story(String name, String img, {bool add = false}) => Padding(
     );
   }
 
-  Widget _chatTile(ChatItemHive chat) => GestureDetector(
+  Widget _chatTile(ChatItemHive chat) => InkWell(
         onTap: () async {
           final roomId = await getOrCreateRoom(chat.userId);
 
