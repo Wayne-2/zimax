@@ -17,12 +17,12 @@ class ChatItemHiveAdapter extends TypeAdapter<ChatItemHive> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return ChatItemHive(
-      name: fields[0] as String,
-      preview: fields[1] as String,
-      avatar: fields[2] as String,
-      userId: fields[3] as String,
-      time: fields[4] as String,
-      verified: fields[5] as bool,
+      roomId: fields[0] as String,
+      userId: fields[1] as String,
+      name: fields[2] as String,
+      avatar: fields[3] as String,
+      preview: fields[4] as String,
+      time: fields[5] as String,
       online: fields[6] as bool,
     );
   }
@@ -32,17 +32,17 @@ class ChatItemHiveAdapter extends TypeAdapter<ChatItemHive> {
     writer
       ..writeByte(7)
       ..writeByte(0)
-      ..write(obj.name)
+      ..write(obj.roomId)
       ..writeByte(1)
-      ..write(obj.preview)
-      ..writeByte(2)
-      ..write(obj.avatar)
-      ..writeByte(3)
       ..write(obj.userId)
+      ..writeByte(2)
+      ..write(obj.name)
+      ..writeByte(3)
+      ..write(obj.avatar)
       ..writeByte(4)
-      ..write(obj.time)
+      ..write(obj.preview)
       ..writeByte(5)
-      ..write(obj.verified)
+      ..write(obj.time)
       ..writeByte(6)
       ..write(obj.online);
   }

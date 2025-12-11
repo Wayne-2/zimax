@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,7 +9,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/models/chatitem.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
-
 class AddChatPage extends ConsumerStatefulWidget {
   const AddChatPage({super.key});
 
@@ -16,44 +17,35 @@ class AddChatPage extends ConsumerStatefulWidget {
 }
 
 class _AddChatPageState extends ConsumerState<AddChatPage> {
-  final TextEditingController _search = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   String query = "";
+  Timer? _debounce;
+
   final supabase = Supabase.instance.client;
-  bool loading = false;
-  Future<void> search(String query) async {
-  final q = query.trim();
 
-  setState(() => loading = true);
-
-  try {
-
-
-    final usersFuture = supabase
-        .from('user_profile')
-        .select()
-        .or(
-          'fullname.ilike.%$q%,email.ilike.%$q%,status.ilike.%$q%,profile_image_url.ilike.%$q%',
-        )
-        .order('created_at', ascending: false);
-
-    await Future.wait([ usersFuture]);
-
-
-  } catch (e) {
-    debugPrint("Search error: $e");
-  } finally {
-    setState(() => loading = false);
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
   }
-}
+
+  // Debounced search for better UX
+  void onSearchChanged(String value) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() => query = value.trim().toLowerCase());
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final usersAsync = ref.watch(userServiceStreamProvider);
-    final myUser = Supabase.instance.client.auth.currentUser;
+    final myUser = supabase.auth.currentUser;
     final myId = myUser?.id;
 
     return Scaffold(
       backgroundColor: Colors.white,
-
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -70,46 +62,29 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
           ),
         ),
       ),
-
       body: Column(
         children: [
           _buildSearchBar(),
-
           const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  "Available on Zimax",
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
+          _buildHeader("Available on Zimax"),
           const SizedBox(height: 6),
-
           Expanded(
             child: usersAsync.when(
               loading: () => _buildShimmerList(),
-              error: (e, _) => Center(child: Text("Error: $e")),
+              error: (e, _) => Center(
+                child: Text("Error: $e", style: GoogleFonts.poppins()),
+              ),
               data: (users) {
-                // FILTER OUT CURRENT USER
-                final filtered = users.where((u) => u["id"] != myId).toList();
+                // Filter out current user and users without IDs
+                final filtered = users
+                    .where((u) => u["id"] != null && u["id"] != myId)
+                    .toList();
 
-                // SEARCH FILTER
-                final q = query.toLowerCase();
+                // Apply search query
                 final searched = filtered.where((u) {
-                  final name = (u["fullname"] ?? "").toLowerCase();
-                  final email = (u["email"] ?? "").toLowerCase();
-                  return name.contains(q) || email.contains(q);
+                  final name = (u["fullname"] ?? "").toString().toLowerCase();
+                  final email = (u["email"] ?? "").toString().toLowerCase();
+                  return name.contains(query) || email.contains(query);
                 }).toList();
 
                 if (searched.isEmpty) {
@@ -151,37 +126,55 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
           color: Colors.grey.shade200,
         ),
         child: TextField(
-          controller: _search,
-          onChanged: (v) => setState(() => query = v),
+          controller: _searchController,
+          onChanged: onSearchChanged,
           decoration: InputDecoration(
             border: InputBorder.none,
             hintText: "Search users",
             hintStyle: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-            prefixIcon: Icon(Icons.manage_search_sharp),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: const Icon(Icons.manage_search_sharp),
           ),
         ),
       ),
     );
   }
 
+  Widget _buildHeader(String text) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      );
+
   Widget _buildUserTile(Map user) {
-    final joinDate = DateTime.tryParse(user["created_at"] ?? "") ?? DateTime.now();
-    final readable = DateFormat("d MMM yyyy").format(joinDate);
+    final createdAt = user["created_at"]?.toString();
+    String readableDate = "Unknown";
+    if (createdAt != null) {
+      final dt = DateTime.tryParse(createdAt);
+      if (dt != null) readableDate = DateFormat("d MMM yyyy").format(dt);
+    }
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-
       leading: CircleAvatar(
         radius: 22,
         backgroundImage: (user["profile_image_url"] != null &&
-                user["profile_image_url"] != "")
+                (user["profile_image_url"] as String).isNotEmpty)
             ? NetworkImage(user["profile_image_url"])
             : const NetworkImage("https://i.pravatar.cc/150?img=3"),
       ),
-
       title: Row(
         children: [
           Text(
@@ -197,7 +190,7 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
           const Icon(Icons.circle, size: 4, color: Colors.grey),
           const SizedBox(width: 4),
           Text(
-            "Joined $readable",
+            "Joined $readableDate",
             style: GoogleFonts.poppins(
               fontSize: 12,
               color: Colors.grey,
@@ -206,7 +199,6 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
           ),
         ],
       ),
-
       subtitle: Text(
         user["email"] ?? "No email",
         style: GoogleFonts.poppins(
@@ -215,19 +207,19 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
           color: Colors.black45,
         ),
       ),
-        onTap: () {
-          final chatItem = ChatItem(
-            name: user["fullname"],
-            preview: "Start a conversation",
-            avatar: user["profile_image_url"] ?? "",
-            userId: user["id"],
-            time: "now",
-            verified: user["status"] == "verified",
-            online: user["status"] == "online",
-          );
+      onTap: () {
+        final chatItem = ChatItem(
+          name: user["fullname"] ?? "Unknown User",
+          preview: "Start a conversation",
+          avatar: user["profile_image_url"] ?? "",
+          userId: user["id"] ?? '',
+          time: "now",
+          verified: user["status"] == "verified",
+          online: user["status"] == "online",
+        );
 
-          Navigator.pop(context, chatItem);
-        }
+        Navigator.pop(context, chatItem);
+      },
     );
   }
 

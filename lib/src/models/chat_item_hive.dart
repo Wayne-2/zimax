@@ -5,33 +5,33 @@ part 'chat_item_hive.g.dart';
 @HiveType(typeId: 1)
 class ChatItemHive extends HiveObject {
   @HiveField(0)
-  final String name;
+  String roomId; // REQUIRED for linking with Supabase
 
   @HiveField(1)
-  final String preview;
+  String userId;
 
   @HiveField(2)
-  final String avatar;
+  String name;
 
   @HiveField(3)
-  final String userId;
+  String avatar;
 
   @HiveField(4)
-  final String time;
+  String preview;
 
   @HiveField(5)
-  final bool verified;
+  String time; // ISO String
 
   @HiveField(6)
-  final bool online;
+  bool online;
 
   ChatItemHive({
-    required this.name,
-    required this.preview,
-    required this.avatar,
+    required this.roomId,
     required this.userId,
+    required this.name,
+    required this.avatar,
+    required this.preview,
     required this.time,
-    this.verified = false,
-    this.online = false,
+    required this.online,
   });
 }

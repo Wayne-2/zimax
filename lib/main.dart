@@ -11,10 +11,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/auth/signin.dart';
-import 'package:zimax/src/pages/extrapage.dart/chat_item_hive.dart';
+import 'package:zimax/src/models/chat_item_hive.dart';
+
 
 // Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 //   await Firebase.initializeApp();
@@ -83,24 +83,18 @@ void main() async {
   //   'user_id': supabase.auth.currentUser!.id,
   //   'token': token,
   // });
-
-  final dir = await getApplicationDocumentsDirectory();
-
-  await Hive.initFlutter(dir.path);
-
+      // Initialize Hive
+  await Hive.initFlutter();
   Hive.registerAdapter(ChatItemHiveAdapter());
+  await Hive.openBox<ChatItemHive>('chatBox');
 
-  await Hive.openBox<ChatItemHive>('chatlist');
+  
 
   await Supabase.initialize(
     url: 'https://kldaeoljhumowuegwjyq.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsZGFlb2xqaHVtb3d1ZWd3anlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4OTY2MjAsImV4cCI6MjA4MDQ3MjYyMH0.OrqMl6ejtoa8m41Y1MWJm1oAz3S3iKc0UXlW07qyG3A',
   );
-
-  final box = await Hive.openBox('chat_items');  
-  await box.close();  
-
 
   runApp(
     const ProviderScope(
