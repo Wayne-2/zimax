@@ -247,7 +247,7 @@ class _ChatroomState extends State<Chatroom> {
   Widget _buildMessages(String myId) {
     return ListView.builder(
       controller: scroll,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric( vertical: 8),
       itemCount: messages.length,
       itemBuilder: (_, i) {
         final msg = messages[i];
@@ -280,6 +280,7 @@ class _ChatroomState extends State<Chatroom> {
                 ? Colors.black.withOpacity(0.08)
                 : Colors.transparent,
             padding: const EdgeInsets.symmetric(vertical: 2),
+            margin: EdgeInsets.symmetric(horizontal: 10),
             child: Column(
               crossAxisAlignment:
                   isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,

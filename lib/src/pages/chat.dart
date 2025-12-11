@@ -9,10 +9,11 @@ import 'package:zimax/src/components/chatroom.dart';
 import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/models/chat_item_hive.dart';
 import 'package:zimax/src/models/chatitem.dart';
+import 'package:zimax/src/models/mediapost.dart';
+import 'package:zimax/src/models/story.dart';
 import 'package:zimax/src/pages/extrapage.dart/addchat.dart';
+import 'package:zimax/src/pages/extrapage.dart/storypage.dart';
 import 'package:zimax/src/services/riverpod.dart';
-
-
 
 class Chat extends ConsumerStatefulWidget {
   const Chat({super.key});
@@ -27,9 +28,14 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
   late Box<ChatItemHive> chatBox;
   List<ChatItemHive> chats = [];
 
+  List<StoryItem> stories = [];
+  bool loading = true;
+
+  RealtimeChannel? _channel;
+
   late AnimationController _intro;
   late AnimationController _pulse;
-  late Animation<double> fade, slide, bounce, pulse;
+  late Animation<double> fade, slide, bounce, pulseAnim;
 
   @override
   void initState() {
@@ -37,6 +43,16 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
     _setupAnimations();
     _loadHive();
     _syncWithSupabase();
+    loadStatus();
+    subscribeRealtime();
+  }
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    _pulse.dispose();
+    _channel?.unsubscribe();
+    super.dispose();
   }
 
   /// Load saved chats from Hive
@@ -49,6 +65,7 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
     });
   }
 
+  /// Sync chats with Supabase chatrooms
   Future<void> _syncWithSupabase() async {
     final uid = supabase.auth.currentUser!.id;
 
@@ -63,14 +80,10 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
         """)
         .or('user1.eq.$uid,user2.eq.$uid');
 
-    Map<String, ChatItemHive> merged = {
-      for (var c in chats) c.roomId: c,
-    };
+    Map<String, ChatItemHive> merged = {for (var c in chats) c.roomId: c};
 
     for (final r in rooms) {
       final otherId = r['user1'] == uid ? r['user2'] : r['user1'];
-
-      /// Pull fresh user info
       final profile =
           await supabase.from('user_profile').select().eq('id', otherId).single();
 
@@ -101,20 +114,109 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
     });
   }
 
-  /// Create or retrieve a chatroom
+  /// Fetch status posts
+  Future<void> loadStatus() async {
+    final posts = await supabase
+        .from('media_posts')
+        .select()
+        .eq('posted_to', 'Story')
+        .order('created_at', ascending: true);
+
+    final postList = List<Map<String, dynamic>>.from(posts);
+    setState(() {
+      stories = postList
+          .map((json) => StoryItem(
+                id: json['id'],
+                name: json['username'] ?? '',
+                avatar: json['pfp'],
+                imageUrl: json['media_url'],
+                text: json['content'],
+              ))
+          .toList();
+      loading = false;
+    });
+  }
+
+  /// Subscribe to Realtime updates for new status posts
+  void subscribeRealtime() {
+    _channel = supabase.channel('status_channel');
+
+    _channel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'media_posts',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'posted_to',
+            value: 'Story',
+          ),
+          callback: (payload) {
+            final json = payload.newRecord;
+            final newStory = StoryItem(
+              id: json['id'],
+              name: json['username'] ?? '',
+              avatar: json['pfp'],
+              imageUrl: json['media_url'],
+              text: json['content'],
+            );
+
+            setState(() {
+              if (!stories.any((s) => s.id == newStory.id)) stories.add(newStory);
+            });
+          },
+        )
+        .subscribe();
+  }
+
+  /// Generate StoryItems from MediaPosts (if needed elsewhere)
+  List<StoryItem> mediaPostsToStories(List<MediaPost> posts) {
+    return posts.map((post) {
+      return StoryItem(
+        id: post.id,
+        name: post.username,
+        avatar: post.pfp,
+        imageUrl: post.mediaUrl,
+        text: post.content,
+      );
+    }).toList();
+  }
+
+  /// Setup animations
+  void _setupAnimations() {
+    _intro = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900));
+    _pulse = AnimationController(
+        vsync: this, duration: const Duration(seconds: 2));
+
+    fade = CurvedAnimation(parent: _intro, curve: Curves.easeIn);
+    slide = Tween<double>(begin: 30, end: 0)
+        .animate(CurvedAnimation(parent: _intro, curve: Curves.easeOut));
+    bounce = Tween<double>(begin: 0.85, end: 1.0)
+        .animate(CurvedAnimation(parent: _intro, curve: Curves.elasticOut));
+    pulseAnim = Tween<double>(begin: 0.97, end: 1.03)
+        .animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
+
+    _intro.forward();
+    _intro.addStatusListener((s) {
+      if (s == AnimationStatus.completed) _pulse.repeat(reverse: true);
+    });
+  }
+
+  /// Create or get chat room
   Future<String> getOrCreateRoom(String otherUserId) async {
     final myId = supabase.auth.currentUser!.id;
 
     final existing = await supabase
         .from('chatrooms')
         .select('id')
-        .or('and(user1.eq.$myId,user2.eq.$otherUserId),and(user1.eq.$otherUserId,user2.eq.$myId)')
+        .or(
+            'and(user1.eq.$myId,user2.eq.$otherUserId),and(user1.eq.$otherUserId,user2.eq.$myId)')
         .maybeSingle();
 
     if (existing != null) return existing['id'];
 
     final roomId = const Uuid().v4();
-
     await supabase.from('chatrooms').insert({
       "id": roomId,
       "user1": myId,
@@ -124,10 +226,8 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
     return roomId;
   }
 
-  /// Add a chat from AddChatPage
   void addChat(ChatItem item) async {
     final roomId = await getOrCreateRoom(item.userId);
-
     final hiveItem = ChatItemHive(
       roomId: roomId,
       userId: item.userId,
@@ -146,43 +246,19 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
     });
   }
 
-  /// Setup animations
-  void _setupAnimations() {
-    _intro = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
-    _pulse = AnimationController(vsync: this, duration: const Duration(seconds: 2));
-
-    fade = CurvedAnimation(parent: _intro, curve: Curves.easeIn);
-    slide = Tween<double>(begin: 30, end: 0).animate(CurvedAnimation(parent: _intro, curve: Curves.easeOut));
-    bounce = Tween<double>(begin: 0.85, end: 1.0).animate(CurvedAnimation(parent: _intro, curve: Curves.elasticOut));
-    pulse = Tween<double>(begin: 0.97, end: 1.03).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
-
-    _intro.forward();
-    _intro.addStatusListener((s) {
-      if (s == AnimationStatus.completed) _pulse.repeat(reverse: true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _intro.dispose();
-    _pulse.dispose();
-    super.dispose();
-  }
-
-  /// UI
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider)!;
 
     return Scaffold(
       backgroundColor: Colors.white,
-
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
         automaticallyImplyLeading: false,
         title: Text("Zimax Chat",
-            style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
+            style:
+                GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
         actions: [
           CircleAvatar(
             radius: 16,
@@ -191,17 +267,30 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
           const SizedBox(width: 16),
         ],
       ),
-
       body: Column(
         children: [
           _searchBar(),
-          Padding( padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8), child: Row( mainAxisAlignment: MainAxisAlignment.start, children: [ Text( 'Story', style: GoogleFonts.poppins( color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 14, ), ), ], ), ),
-          _storyList(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Text(
+                  'Story',
+                  style: GoogleFonts.poppins(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          storyList(context, user, stories),
           _header(),
           _chatList(),
         ],
       ),
-
       floatingActionButton: _fab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
     );
@@ -227,64 +316,65 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
         ),
       );
 
-  Widget _storyList() => SizedBox(
-        height: 90,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.all(10),
-          children: [
-            _story("Engage", "https://i.pravatar.cc/200?img=1", add: true),
-            _story("elonmusk", "https://i.pravatar.cc/200?img=2"),
-            _story("flutterdev", "https://i.pravatar.cc/200?img=11"),
-          ],
-        ),
-      );
+  Widget storyList(BuildContext context, dynamic user, List<StoryItem> stories) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (stories.isEmpty) return const Center(child: Text("No story available"));
 
-Widget _story(String name, String img, {bool add = false}) => Padding(
-  padding: const EdgeInsets.only(right: 10),
-  child: Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Stack(
-        children: [
-          CircleAvatar(radius: 22, backgroundImage: NetworkImage(img)), // was 26
-          if (add)
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  border: Border.all(color: Colors.black),
+    return SizedBox(
+      height: 90,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: stories.length,
+        padding: const EdgeInsets.all(10),
+        itemBuilder: (_, index) {
+          final s = stories[index];
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StoryPage(
+                    stories: stories,
+                    initialIndex: index,
+                  ),
                 ),
-                padding: const EdgeInsets.all(2),
-                child: const Icon(Icons.add, size: 12),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundImage: NetworkImage(s.avatar ?? ''),
+                  ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      s.name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w300),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
             ),
-        ],
+          ); 
+        },
       ),
-      const SizedBox(height: 4),
-      SizedBox(
-        width: 60,
-        child: Text(
-          name,
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-          style: GoogleFonts.poppins(fontSize: 12), // added
-          textAlign: TextAlign.center,
-        ),
-      ),
-    ],
-  ),
-);
-
+    );
+  }
 
   Widget _header() => Padding(
         padding: const EdgeInsets.all(10),
         child: Row(children: [
           Text("Conversations",
-              style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+              style:
+                  GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
         ]),
       );
 
@@ -334,18 +424,14 @@ Widget _story(String name, String img, {bool add = false}) => Padding(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(chat.name,
-                            style: GoogleFonts.poppins(
-                                fontSize: 14, fontWeight: FontWeight.w500)),
-
-                      ],
-                    ),
+                    Text(chat.name,
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 2),
                     Text(chat.preview,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(fontSize: 13, color: Colors.black54)),
+                        style: GoogleFonts.poppins(
+                            fontSize: 13, color: Colors.black54)),
                   ],
                 ),
               )
@@ -357,7 +443,7 @@ Widget _story(String name, String img, {bool add = false}) => Padding(
   Widget _fab() => AnimatedBuilder(
         animation: Listenable.merge([_intro, _pulse]),
         builder: (_, child) {
-          final scale = bounce.value * pulse.value;
+          final scale = bounce.value * pulseAnim.value;
 
           return Opacity(
             opacity: fade.value,
