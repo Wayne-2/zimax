@@ -49,7 +49,6 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
     });
   }
 
-  /// Merge Supabase chatrooms with Hive
   Future<void> _syncWithSupabase() async {
     final uid = supabase.auth.currentUser!.id;
 
