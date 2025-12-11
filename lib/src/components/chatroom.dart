@@ -40,9 +40,6 @@ class _ChatroomState extends State<Chatroom> {
     super.dispose();
   }
 
-  // ----------------------------------------------------------
-  // ✅ Load previous messages (history)
-  // ----------------------------------------------------------
   Future<void> loadMessages() async {
     final res = await supabase
         .from("messages")
@@ -55,13 +52,9 @@ class _ChatroomState extends State<Chatroom> {
       messages.addAll(List<Map<String, dynamic>>.from(res));
     });
 
-    // scroll to bottom after load
     WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
   }
 
-  // ----------------------------------------------------------
-  // ✅ Realtime subscription (modern API)
-  // ----------------------------------------------------------
   void subscribeRealtime() {
     channel = supabase.channel("room-${widget.roomId}");
 
@@ -77,23 +70,13 @@ class _ChatroomState extends State<Chatroom> {
       ),
       callback: (payload) {
         final record = payload.newRecord;
-
-        setState(() {
-          messages.add(record);
-        });
-
-        // auto-scroll when a new message arrives
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          scrollToBottom();
-        });
-            },
+        setState(() => messages.add(record));
+        WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
+      },
     )
         .subscribe();
   }
 
-  // ----------------------------------------------------------
-  // ✅ Send message
-  // ----------------------------------------------------------
   Future<void> send() async {
     final text = controller.text.trim();
     if (text.isEmpty) return;
@@ -109,149 +92,174 @@ class _ChatroomState extends State<Chatroom> {
     controller.clear();
   }
 
-  // ----------------------------------------------------------
-  // ✅ Scroll helper
-  // ----------------------------------------------------------
   void scrollToBottom() {
     if (scroll.hasClients) {
       scroll.animateTo(
         scroll.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
       );
     }
   }
 
   // ----------------------------------------------------------
-  // ✅ UI
+  // UI SECTION
   // ----------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final myId = supabase.auth.currentUser!.id;
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: const BackButton(color: Colors.black),
-
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundImage: NetworkImage(widget.friend["avatar"]),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.friend["name"],
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  "Active now",
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-
-      // ----------------------------------------------------------
-      // ✅ Messages list
-      // ----------------------------------------------------------
+      backgroundColor: const Color(0xffece5dd), // WhatsApp background
+      appBar: _buildWhatsAppAppBar(),
       body: Column(
         children: [
-          Expanded(
-            child: ListView.builder(
-              controller: scroll,
-              padding: const EdgeInsets.all(10),
-              itemCount: messages.length,
-              itemBuilder: (_, i) {
-                final msg = messages[i];
-                final isMe = msg["sender_id"] == myId;
+          Expanded(child: _buildMessages(myId)),
+          _buildInputBar(),
+        ],
+      ),
+    );
+  }
 
-                return Align(
-                  alignment:
-                      isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    constraints: const BoxConstraints(maxWidth: 260),
-                    decoration: BoxDecoration(
-                      color:
-                          isMe ? Colors.black87 : Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      msg["body"],
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: isMe ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                  ),
-                );
-              },
+  // ----------------------------------------------------------
+  // WhatsApp AppBar
+  // ----------------------------------------------------------
+  AppBar _buildWhatsAppAppBar() {
+    return AppBar(
+      elevation: 0,
+      leadingWidth: 50,
+      titleSpacing: 0,
+
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: Color.fromARGB(255, 7, 7, 7)),
+        onPressed: () => Navigator.pop(context),
+      ),
+
+      title: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundImage: NetworkImage(widget.friend["avatar"]),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.friend["name"],
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color.fromARGB(255, 7, 7, 7)
+                ),
+              ),
+              Text(
+                "Online",
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Color.fromARGB(255, 7, 7, 7)
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+
+      actions: const [
+        Icon(Icons.videocam, color: Colors.white),
+        SizedBox(width: 18),
+        Icon(Icons.call, color: Colors.white),
+        SizedBox(width: 18),
+        Icon(Icons.more_vert, color: Colors.white),
+        SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _buildMessages(String myId) {
+    return ListView.builder(
+      controller: scroll,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      itemCount: messages.length,
+      itemBuilder: (_, i) {
+        final msg = messages[i];
+        final isMe = msg["sender_id"] == myId;
+
+        return Align(
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            margin: const EdgeInsets.only(top: 6, bottom: 4),
+            constraints: const BoxConstraints(maxWidth: 270),
+            decoration: BoxDecoration(
+              color: isMe ? const Color(0xffdcf8c6) : Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(12),
+                topRight: const Radius.circular(12),
+                bottomLeft: isMe
+                    ? const Radius.circular(12)
+                    : const Radius.circular(0),
+                bottomRight: isMe
+                    ? const Radius.circular(0)
+                    : const Radius.circular(12),
+              ),
+            ),
+            child: Text(
+              msg["body"],
+              style: GoogleFonts.poppins(
+                fontSize: 13.5,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInputBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      color: const Color(0xfff0f0f0),
+      child: Row(
+        children: [
+          // Emojis
+          IconButton(
+            icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.black54),
+            onPressed: () {},
+          ),
+
+          // Text Field
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14,),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: TextField(
+                controller: controller,
+                style: GoogleFonts.poppins(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: "Start typing...",
+                  hintStyle: GoogleFonts.poppins(color: Colors.black38),
+                  border: InputBorder.none,
+                ),
+                onSubmitted: (_) => send(),
+              ),
             ),
           ),
 
-          // ----------------------------------------------------------
-          // ✅ Input bar
-          // ----------------------------------------------------------
-          Container(
-            margin: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 10),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(26),
+          const SizedBox(width: 8),
+
+          // Send button
+          CircleAvatar(
+            backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 18),
+              onPressed: send,
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.insert_emoticon,
-                    color: Colors.black45),
-
-                const SizedBox(width: 8),
-
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    style: GoogleFonts.poppins(fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: "Message...",
-                      hintStyle:
-                          GoogleFonts.poppins(color: Colors.black38),
-                      border: InputBorder.none,
-                    ),
-                    onSubmitted: (_) => send(),
-                  ),
-                ),
-
-                GestureDetector(
-                  onTap: send,
-                  child: const Icon(
-                    Icons.arrow_upward,
-                    color: Colors.black,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
-          )
+          ),
         ],
       ),
     );
