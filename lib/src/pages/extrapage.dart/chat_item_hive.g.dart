@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'chatitem_hive.dart';
+part of 'chat_item_hive.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
@@ -20,15 +20,17 @@ class ChatItemHiveAdapter extends TypeAdapter<ChatItemHive> {
       name: fields[0] as String,
       preview: fields[1] as String,
       avatar: fields[2] as String,
-      time: fields[3] as String,
-      online: fields[4] as bool,
+      userId: fields[3] as String,
+      time: fields[4] as String,
+      verified: fields[5] as bool,
+      online: fields[6] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, ChatItemHive obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -36,8 +38,12 @@ class ChatItemHiveAdapter extends TypeAdapter<ChatItemHive> {
       ..writeByte(2)
       ..write(obj.avatar)
       ..writeByte(3)
-      ..write(obj.time)
+      ..write(obj.userId)
       ..writeByte(4)
+      ..write(obj.time)
+      ..writeByte(5)
+      ..write(obj.verified)
+      ..writeByte(6)
       ..write(obj.online);
   }
 

@@ -220,6 +220,7 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
             name: user["fullname"],
             preview: "Start a conversation",
             avatar: user["profile_image_url"] ?? "",
+            userId: user["id"],
             time: "now",
             verified: user["status"] == "verified",
             online: user["status"] == "online",
