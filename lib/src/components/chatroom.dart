@@ -40,11 +40,12 @@ class _ChatroomState extends State<Chatroom> {
     super.dispose();
   }
 
+  /// Load messages from Supabase
   Future<void> loadMessages() async {
     final res = await supabase
         .from("messages")
         .select()
-        .eq("room_id", widget.roomId)
+        .eq("chatroom_id", widget.roomId)
         .order("created_at", ascending: true);
 
     setState(() {
@@ -55,6 +56,7 @@ class _ChatroomState extends State<Chatroom> {
     WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
   }
 
+  /// Subscribe to realtime updates
   void subscribeRealtime() {
     channel = supabase.channel("room-${widget.roomId}");
 
@@ -65,7 +67,7 @@ class _ChatroomState extends State<Chatroom> {
       table: "messages",
       filter: PostgresChangeFilter(
         type: PostgresChangeFilterType.eq,
-        column: "room_id",
+        column: "chatroom_id",
         value: widget.roomId,
       ),
       callback: (payload) {
@@ -77,6 +79,7 @@ class _ChatroomState extends State<Chatroom> {
         .subscribe();
   }
 
+  /// Send message to Supabase
   Future<void> send() async {
     final text = controller.text.trim();
     if (text.isEmpty) return;
@@ -84,14 +87,15 @@ class _ChatroomState extends State<Chatroom> {
     final uid = supabase.auth.currentUser!.id;
 
     await supabase.from("messages").insert({
-      "room_id": widget.roomId,
-      "sender_id": uid,
-      "body": text,
+      "chatroom_id": widget.roomId,
+      "sender": uid,
+      "message": text,
     });
 
     controller.clear();
   }
 
+  /// Scroll helper
   void scrollToBottom() {
     if (scroll.hasClients) {
       scroll.animateTo(
@@ -102,15 +106,12 @@ class _ChatroomState extends State<Chatroom> {
     }
   }
 
-  // ----------------------------------------------------------
-  // UI SECTION
-  // ----------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final myId = supabase.auth.currentUser!.id;
 
     return Scaffold(
-      backgroundColor: const Color(0xffece5dd), // WhatsApp background
+      backgroundColor: const Color(0xffece5dd),
       appBar: _buildWhatsAppAppBar(),
       body: Column(
         children: [
@@ -121,20 +122,15 @@ class _ChatroomState extends State<Chatroom> {
     );
   }
 
-  // ----------------------------------------------------------
-  // WhatsApp AppBar
-  // ----------------------------------------------------------
   AppBar _buildWhatsAppAppBar() {
     return AppBar(
       elevation: 0,
       leadingWidth: 50,
       titleSpacing: 0,
-
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Color.fromARGB(255, 7, 7, 7)),
         onPressed: () => Navigator.pop(context),
       ),
-
       title: Row(
         children: [
           CircleAvatar(
@@ -150,27 +146,24 @@ class _ChatroomState extends State<Chatroom> {
                 style: GoogleFonts.poppins(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Color.fromARGB(255, 7, 7, 7)
+                  color: const Color.fromARGB(255, 7, 7, 7),
                 ),
               ),
               Text(
                 "Online",
                 style: GoogleFonts.poppins(
                   fontSize: 12,
-                  color: Color.fromARGB(255, 7, 7, 7)
+                  color: const Color.fromARGB(255, 7, 7, 7),
                 ),
               ),
             ],
           )
         ],
       ),
-
       actions: const [
-        Icon(Icons.videocam, color: Colors.white),
+        Icon(Icons.call_outlined, color: Colors.black87, size: 20),
         SizedBox(width: 18),
-        Icon(Icons.call, color: Colors.white),
-        SizedBox(width: 18),
-        Icon(Icons.more_vert, color: Colors.white),
+        Icon(Icons.more_vert, color: Colors.black87),
         SizedBox(width: 8),
       ],
     );
@@ -183,7 +176,7 @@ class _ChatroomState extends State<Chatroom> {
       itemCount: messages.length,
       itemBuilder: (_, i) {
         final msg = messages[i];
-        final isMe = msg["sender_id"] == myId;
+        final isMe = msg["sender"] == myId;
 
         return Align(
           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -192,23 +185,19 @@ class _ChatroomState extends State<Chatroom> {
             margin: const EdgeInsets.only(top: 6, bottom: 4),
             constraints: const BoxConstraints(maxWidth: 270),
             decoration: BoxDecoration(
-              color: isMe ? const Color(0xffdcf8c6) : Colors.white,
+              color: isMe ? const Color.fromARGB(255, 51, 51, 51) : Colors.white,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(12),
                 topRight: const Radius.circular(12),
-                bottomLeft: isMe
-                    ? const Radius.circular(12)
-                    : const Radius.circular(0),
-                bottomRight: isMe
-                    ? const Radius.circular(0)
-                    : const Radius.circular(12),
+                bottomLeft: isMe ? const Radius.circular(12) : const Radius.circular(0),
+                bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(12),
               ),
             ),
             child: Text(
-              msg["body"],
+              msg["message"],
               style: GoogleFonts.poppins(
                 fontSize: 13.5,
-                color: Colors.black87,
+                color:isMe ? Colors.white: Colors.black87,
               ),
             ),
           ),
@@ -223,16 +212,13 @@ class _ChatroomState extends State<Chatroom> {
       color: const Color(0xfff0f0f0),
       child: Row(
         children: [
-          // Emojis
           IconButton(
             icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.black54),
             onPressed: () {},
           ),
-
-          // Text Field
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14,),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(28),
@@ -249,12 +235,9 @@ class _ChatroomState extends State<Chatroom> {
               ),
             ),
           ),
-
           const SizedBox(width: 8),
-
-          // Send button
           CircleAvatar(
-            backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+            backgroundColor: Colors.black,
             child: IconButton(
               icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 18),
               onPressed: send,
