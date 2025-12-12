@@ -18,7 +18,7 @@ class _CommunityState extends State<Community> {
       backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
-          _banner(),
+          _collapsingBanner(),
           SliverToBoxAdapter(child: _communityHeader()),
           SliverToBoxAdapter(child: _aboutSection()),
           SliverToBoxAdapter(child: _rulesSection()),
@@ -29,16 +29,62 @@ class _CommunityState extends State<Community> {
     );
   }
 
-  // --------------------------
-  // TOP BANNER
-  // --------------------------
-  Widget _banner() {
+  Widget _collapsingBanner() {
     return SliverAppBar(
       expandedHeight: 180,
       pinned: true,
       floating: false,
-      backgroundColor: Colors.white,
       elevation: 0,
+      backgroundColor: Colors.white,
+
+      // COLLAPSED HEADER (shows only when scrolled)
+      title: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCollapsed = constraints.maxHeight < 120;
+
+          return AnimatedOpacity(
+            opacity: isCollapsed ? 1 : 0,
+            duration: const Duration(milliseconds: 250),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundImage: CachedNetworkImageProvider(
+                    "https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/media/zimaxpfp.png",
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  "Zimax Collaborators",
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(() => joined = !joined),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: joined ? Colors.grey.shade800 : Colors.black,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      joined ? "Joined" : "Join",
+                      style: GoogleFonts.poppins(
+                          fontSize: 12, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+
       flexibleSpace: FlexibleSpaceBar(
         background: CachedNetworkImage(
           imageUrl:
@@ -49,26 +95,24 @@ class _CommunityState extends State<Community> {
     );
   }
 
-  // --------------------------
-  // COMMUNITY HEADER SECTION
-  // --------------------------
+  // --------------------------------------------------
+  //  MAIN COMMUNITY HEADER (visible when expanded)
+  // --------------------------------------------------
   Widget _communityHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Community Avatar
           CircleAvatar(
             radius: 30,
-            backgroundColor: Colors.white,
             backgroundImage: CachedNetworkImageProvider(
               "https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/media/zimaxpfp.png",
             ),
           ),
           const SizedBox(width: 16),
 
-          // Name + Members + Badge
+          // NAME + MEMBER COUNT
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,36 +120,28 @@ class _CommunityState extends State<Community> {
                 Text(
                   "Zimax Collaborators",
                   style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
+                      fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 Text(
                   "350k members · 1.2k online",
                   style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
+                      fontSize: 13, color: Colors.grey.shade600),
                 ),
               ],
             ),
           ),
 
-          // Join Button
+          // JOIN BUTTON
           ElevatedButton(
-            onPressed: () {
-              setState(() => joined = !joined);
-            },
+            onPressed: () => setState(() => joined = !joined),
             style: ElevatedButton.styleFrom(
               backgroundColor: joined ? Colors.grey.shade800 : Colors.black,
               foregroundColor: Colors.white,
               elevation: 0,
-              side: joined
-                  ? const BorderSide(color: Colors.black, width: 1)
-                  : null,
+              side:
+                  joined ? const BorderSide(color: Colors.black, width: 1) : null,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+                  borderRadius: BorderRadius.circular(8)),
             ),
             child: Text(
               joined ? "Joined" : "Join",
@@ -117,25 +153,23 @@ class _CommunityState extends State<Community> {
     );
   }
 
-  // --------------------------
-  // ABOUT SECTION
-  // --------------------------
+  // --------------------------------------------------
+  //  ABOUT SECTION
+  // --------------------------------------------------
   Widget _aboutSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "About Community",
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
-          ),
+          Text("About Community",
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 8),
           Text(
-            "Welcome to Zimax Collaborators and development team, the platform gives room for respectable suggestion and information for the further development of the application",
+            "Welcome to Zimax Collaborators and development team, "
+            "the platform gives room for respectable suggestion and "
+            "information for the further development of the application.",
             style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
           ),
           const SizedBox(height: 10),
@@ -146,9 +180,7 @@ class _CommunityState extends State<Community> {
               Text(
                 "Created Jan 2019",
                 style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                    fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
           ),
@@ -157,19 +189,18 @@ class _CommunityState extends State<Community> {
     );
   }
 
+  // --------------------------------------------------
+  //  COMMUNITY RULES
+  // --------------------------------------------------
   Widget _rulesSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Community Rules",
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
-          ),
+          Text("Community Rules",
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 10),
           _ruleTile("Be respectful to others."),
           _ruleTile("No spam posts."),
@@ -187,22 +218,20 @@ class _CommunityState extends State<Community> {
           const Icon(Icons.circle, size: 8, color: Colors.black),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              rule,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: Colors.black87,
-              ),
-            ),
+            child: Text(rule,
+                style:
+                    GoogleFonts.poppins(fontSize: 13, color: Colors.black87)),
           ),
         ],
       ),
     );
   }
 
+  // --------------------------------------------------
+  //  MODERATORS ROW
+  // --------------------------------------------------
   Widget _moderatorsBar() {
     return Container(
-      width: double.infinity,
       color: Colors.grey.shade100,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       margin: const EdgeInsets.only(top: 10, bottom: 10),
@@ -210,47 +239,43 @@ class _CommunityState extends State<Community> {
         children: [
           const Icon(Icons.shield, color: Colors.black87),
           const SizedBox(width: 10),
-          Text(
-            "Moderators",
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text("Moderators",
+              style: GoogleFonts.poppins(
+                  fontSize: 14, fontWeight: FontWeight.w600)),
           const Spacer(),
-          Text(
-            "View all",
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: Colors.grey.shade700,
-            ),
-          ),
+          Text("View all",
+              style:
+                  GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade700))
         ],
       ),
     );
   }
 
+  // --------------------------------------------------
+  //  POST LIST
+  // --------------------------------------------------
   Widget _postList() {
     final posts = List.generate(1, (i) => i);
-
     return SliverList(
-      delegate: SliverChildBuilderDelegate((context, index) {
-        return _postCard(index);
-      }, childCount: posts.length),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => _postCard(index),
+        childCount: posts.length,
+      ),
     );
   }
 
+  // --------------------------------------------------
+  //  SINGLE POST CARD
+  // --------------------------------------------------
   Widget _postCard(int index) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-      ),
+          border: Border(top: BorderSide(color: Colors.grey.shade300))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Username + time
           Row(
             children: [
               CircleAvatar(
@@ -260,33 +285,23 @@ class _CommunityState extends State<Community> {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                "user${index + 1}",
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
+              Text("user${index + 1}",
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(width: 6),
-              Text(
-                "· 5h ago",
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
+              Text("· 5h ago",
+                  style: GoogleFonts.poppins(
+                      fontSize: 12, color: Colors.grey.shade600)),
             ],
           ),
           const SizedBox(height: 12),
 
-          // Post text
           Text(
             "This is a sample post inside the Flutter community. Index = $index",
             style: GoogleFonts.poppins(fontSize: 14),
           ),
           const SizedBox(height: 10),
 
-          // Image content
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: CachedNetworkImage(
@@ -300,7 +315,6 @@ class _CommunityState extends State<Community> {
 
           const SizedBox(height: 10),
 
-          // Action bar
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -319,13 +333,9 @@ class _CommunityState extends State<Community> {
       children: [
         Icon(icon, size: 18, color: Colors.grey.shade700),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 13,
-            color: Colors.grey.shade700,
-          ),
-        ),
+        Text(label,
+            style: GoogleFonts.poppins(
+                fontSize: 13, color: Colors.grey.shade700)),
       ],
     );
   }
