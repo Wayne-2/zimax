@@ -315,59 +315,108 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
           ),
         ),
       );
+      
+Map<String, List<StoryItem>> groupStoriesByUser(List<StoryItem> stories) {
+  final Map<String, List<StoryItem>> grouped = {};
+  for (var story in stories) {
+    if (!grouped.containsKey(story.name)) {
+      grouped[story.name] = [];
+    }
+    grouped[story.name]!.add(story);
+  }
+  return grouped;
+}
 
-  Widget storyList(BuildContext context, dynamic user, List<StoryItem> stories) {
-    if (loading) return const Center(child: CircularProgressIndicator());
-    if (stories.isEmpty) return const Center(child: Text("No story available"));
+ Widget storyList(BuildContext context, dynamic user, List<StoryItem> stories) {
+  if (loading) return const Center(child: CircularProgressIndicator());
+  if (stories.isEmpty) return const Center(child: Text("No story available"));
 
-    return SizedBox(
-      height: 90,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: stories.length,
-        padding: const EdgeInsets.all(10),
-        itemBuilder: (_, index) {
-          final s = stories[index];
-          return GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => StoryPage(
-                    stories: stories,
-                    initialIndex: index,
+  final groupedStories = groupStoriesByUser(stories);
+  final userList = groupedStories.keys.toList();
+
+  return SizedBox(
+    height: 90,
+    child: ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: userList.length,
+      padding: const EdgeInsets.all(10),
+      itemBuilder: (_, index) {
+        final username = userList[index];
+        final userStories = groupedStories[username]!;
+        final firstStory = userStories[0]; // Use first story as avatar
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => StoryPage(
+                  stories: userStories, // Pass only this user's stories
+                  initialIndex: 0,
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundImage: NetworkImage(firstStory.avatar ?? ''),
+                    ),
+                    if (userStories.length > 1)
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          // padding: const EdgeInsets.all(2),
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: const Color.fromARGB(255, 0, 0, 0),
+                            // shape: BoxShape.circle,
+                            border: Border.all(color:Colors.white),
+                            borderRadius: BorderRadius.circular(20)
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${userStories.length}',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    username,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: GoogleFonts.poppins(
+                        fontSize: 12, fontWeight: FontWeight.w400),
+                    textAlign: TextAlign.center,
                   ),
                 ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 25,
-                    backgroundImage: NetworkImage(s.avatar ?? ''),
-                  ),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: 60,
-                    child: Text(
-                      s.name,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w300),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
-          ); 
-        },
-      ),
-    );
-  }
+          ),
+        );
+      },
+    ),
+  );
+}
+
 
   Widget _header() => Padding(
         padding: const EdgeInsets.all(10),

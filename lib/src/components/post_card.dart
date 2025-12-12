@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 // import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zimax/src/components/commentsheets.dart';
 import 'package:zimax/src/components/svgicon.dart';
 
 class PostCard extends StatelessWidget {
@@ -10,6 +12,7 @@ class PostCard extends StatelessWidget {
   final String department;
   final String status;
   final String pfp;
+  final String postId;
   final String postcontent;
   final String? imageUrl;
   final String repost;
@@ -18,12 +21,13 @@ class PostCard extends StatelessWidget {
   final String poll;
   final DateTime createdAt;
 
-  const PostCard({
+  PostCard({
     super.key,
     required this.username,
     required this.department,
     required this.status,
     required this.pfp,
+    required this.postId,
     required this.postcontent,
     required this.repost,
     required this.like,
@@ -32,6 +36,50 @@ class PostCard extends StatelessWidget {
     this.imageUrl,
     required this.createdAt,
   });
+
+//   final List<Map<String, dynamic>> demoComments = [
+//   {
+//     "username": "Alice",
+//     "pfp": "https://i.pravatar.cc/150?img=5",
+//     "time": "2h",
+//     "comment": "This is really cool 🔥🔥",
+//   },
+//   {
+//     "username": "Bob",
+//     "pfp": "https://i.pravatar.cc/150?img=3",
+//     "time": "5h",
+//     "comment": "Love this 😍",
+//   },
+//   {
+//     "username": "Charlie",
+//     "pfp": "https://i.pravatar.cc/150?img=1",
+//     "time": "1d",
+//     "comment": "Amazing work bro 👏",
+//   },
+// ];
+
+void _openCommentsSheet(BuildContext context, String postId) {
+  final supabase = Supabase.instance.client;
+  final user = supabase.auth.currentUser;
+
+  if (user == null) return;
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) {
+      return CommentSheet(
+        postId: postId,
+        userId: user.id,
+        pfp: pfp,
+        username: username,
+      );
+    },
+  );
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -189,12 +237,19 @@ class PostCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _ActivIcon('assets/activicon/repost.svg', repost),
-                _ActivIcon('assets/activicon/like.svg', like),
-                _ActivIcon('assets/activicon/comment.svg', comment),
-                _ActivIcon('assets/activicon/activity.svg', poll),
-                _ActivIcon('assets/activicon/bookmark.svg', ""),
-                _ActivIcon('assets/activicon/share.svg', ""),
+                _ActivIcon('assets/activicon/repost.svg', repost, (){
+
+                }),
+                _ActivIcon('assets/activicon/like.svg', like, (){}),
+                _ActivIcon(
+                  'assets/activicon/comment.svg',
+                  comment,
+                  () => _openCommentsSheet(context,postId)
+                ),
+
+                _ActivIcon('assets/activicon/activity.svg', poll, (){}),
+                _ActivIcon('assets/activicon/bookmark.svg', "", (){}),
+                _ActivIcon('assets/activicon/share.svg', "", (){}),
               ],
             ),
           ],
@@ -234,20 +289,27 @@ String timeAgo(DateTime createdAt) {
   }
 }
 
+
+
 class _ActivIcon extends StatelessWidget {
   final String icon;
   final String count;
-  const _ActivIcon(this.icon, this.count);
+  final VoidCallback? onTap;
+  const _ActivIcon(this.icon, this.count, this.onTap);
+
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SvgIcon(icon, color: const Color.fromARGB(255, 45, 45, 45), size: 14),
-        const SizedBox(width: 4),
-        if (count.isNotEmpty)
-          Text(count, style: const TextStyle(color: Colors.grey)),
-      ],
+    return GestureDetector(
+      onTap:onTap,
+      child: Row(
+        children: [
+          SvgIcon(icon, color: const Color.fromARGB(255, 45, 45, 45), size: 14),
+          const SizedBox(width: 4),
+          if (count.isNotEmpty)
+            Text(count, style: const TextStyle(color: Colors.grey)),
+        ],
+      ),
     );
   }
 }
