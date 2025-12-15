@@ -101,8 +101,10 @@ flutter:
     - assets/icons/space.svg
     - assets/activicon/activity.svg
     - assets/activicon/bookmark.svg
+    - assets/activicon/bookmark-filled.svg
     - assets/activicon/comment.svg
     - assets/activicon/like.svg
+    - assets/activicon/like-filled.svg
     - assets/activicon/repost.svg
     - assets/activicon/share.svg
   #   - images/a_dot_ham.jpeg

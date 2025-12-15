@@ -1,4 +1,4 @@
-import 'dart:async';
+// import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -76,54 +76,20 @@ final mediaPostsStreamProvider =
   return stream;
 });
 
-final zimaxHomePostsProvider = StreamProvider.autoDispose<List<MediaPost>>((ref) {
+final zimaxHomePostsProvider =
+    StreamProvider<List<MediaPost>>((ref) {
   final supabase = Supabase.instance.client;
-  final controller = StreamController<List<MediaPost>>();
 
-  List<MediaPost> cache = [];
-
-  // Initial fetch
-  supabase
-      .from('media_posts')
-      .select()
-      .eq('posted_to', 'Zimax home')
-      .order('created_at', ascending: true) 
-      .then((rows) {
-        cache = rows.map((e) => MediaPost.fromJson(e)).toList();
-        controller.add(cache);
-      })
-      // ignore: invalid_return_type_for_catch_error
-      .catchError((e, st) => controller.addError(e, st));
-
-  // Realtime updates
-  final subscription = supabase
+  return supabase
       .from('media_posts')
       .stream(primaryKey: ['id'])
-      .listen((changes) {
-        for (final row in changes) {
-          final post = MediaPost.fromJson(row);
-
-          final index = cache.indexWhere((p) => p.id == post.id);
-
-          if (index != -1) {
-            cache[index] = post;
-          } else {
-            cache.add(post);
-          }
-        }
-
-        // 👇 Always maintain correct order
-        cache.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-        controller.add(List<MediaPost>.from(cache));
-      }, onError: (e, st) => controller.addError(e, st));
-
-  ref.onDispose(() {
-    subscription.cancel();
-    controller.close();
-  });
-
-  return controller.stream;
+      .eq('posted_to', 'Zimax home')
+      .order('created_at', ascending: false)
+      .map(
+        (rows) => rows
+            .map((e) => MediaPost.fromJson(e))
+            .toList(),
+      );
 });
 
 

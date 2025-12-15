@@ -119,7 +119,7 @@ Banner: ${banner?.path}
           _categoryDropdown(),
           const SizedBox(height: 16),
           _sectionTitle("Custom Community Link"),
-          _textField("zimax.app//link/", "your-custom-link", _customLink),
+          _textField("", "zimax.app//link/", _customLink),
           const SizedBox(height: 16),
           _toggles(),
           const SizedBox(height: 40),
@@ -127,10 +127,7 @@ Banner: ${banner?.path}
       ),
     );
   }
-
-  // ----------------------------------------------------------
-  // BANNER PICKER (Discord style top banner)
-  // ----------------------------------------------------------
+ 
   Widget _bannerPicker() {
     return GestureDetector(
       onTap: pickBanner,

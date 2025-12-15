@@ -5,9 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/components/commentsheets.dart';
+import 'package:zimax/src/components/dropdownmenu.dart';
+import 'package:zimax/src/components/repostingbutton.dart';
+import 'package:zimax/src/components/sharebottomsheet.dart';
 import 'package:zimax/src/components/svgicon.dart';
 
-class PostCard extends StatelessWidget {
+class PostCard extends StatefulWidget {
   final String username;
   final String department;
   final String status;
@@ -21,7 +24,7 @@ class PostCard extends StatelessWidget {
   final String poll;
   final DateTime createdAt;
 
-  PostCard({
+  const PostCard({
     super.key,
     required this.username,
     required this.department,
@@ -37,32 +40,18 @@ class PostCard extends StatelessWidget {
     required this.createdAt,
   });
 
-//   final List<Map<String, dynamic>> demoComments = [
-//   {
-//     "username": "Alice",
-//     "pfp": "https://i.pravatar.cc/150?img=5",
-//     "time": "2h",
-//     "comment": "This is really cool 🔥🔥",
-//   },
-//   {
-//     "username": "Bob",
-//     "pfp": "https://i.pravatar.cc/150?img=3",
-//     "time": "5h",
-//     "comment": "Love this 😍",
-//   },
-//   {
-//     "username": "Charlie",
-//     "pfp": "https://i.pravatar.cc/150?img=1",
-//     "time": "1d",
-//     "comment": "Amazing work bro 👏",
-//   },
-// ];
+  @override
+  State<PostCard> createState() => _PostCardState();
+}
 
+class _PostCardState extends State<PostCard> {
+  bool isLiked = false;
 void _openCommentsSheet(BuildContext context, String postId) {
   final supabase = Supabase.instance.client;
   final user = supabase.auth.currentUser;
 
   if (user == null) return;
+
 
   showModalBottomSheet(
     context: context,
@@ -72,188 +61,209 @@ void _openCommentsSheet(BuildContext context, String postId) {
       return CommentSheet(
         postId: postId,
         userId: user.id,
-        pfp: pfp,
-        username: username,
+        pfp: widget.pfp,
+        username: widget.username,
       );
     },
   );
 }
 
-
+void _openShareSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const ShareBottomSheet(),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
-   final readableDate = timeAgo(createdAt);
+   final readableDate = timeAgo(widget.createdAt);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Colors.white12)),
       ),
-      child: Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(35),
-                      child: CachedNetworkImage(
-                        imageUrl: pfp,
-                        width: 35,
-                        height: 35,
-                        fit: BoxFit.cover,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(35),
+                    child: CachedNetworkImage(
+                      imageUrl: widget.pfp,
+                      width: 35,
+                      height: 35,
+                      fit: BoxFit.cover,
 
-                        placeholder: (context, url) => Shimmer.fromColors(
-                          baseColor: Colors.grey.shade300,
-                          highlightColor: Colors.grey.shade100,
-                          child: Container(
-                            width: 35,
-                            height: 35,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(35),
-                            ),
-                          ),
-                        ),
-
-                        errorWidget: (context, url, error) => Container(
-                          width: 30,
-                          height: 30,
+                      placeholder: (context, url) => Shimmer.fromColors(
+                        baseColor: Colors.grey.shade300,
+                        highlightColor: Colors.grey.shade100,
+                        child: Container(
+                          width: 35,
+                          height: 35,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(15),
-                            color: Colors.grey.shade200,
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            color: Colors.grey,
-                            size: 16,
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(35),
                           ),
                         ),
                       ),
-                    ),
 
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            Text(
-                              "$username ",
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            _buildStatusIcon(status),
-                          ],
+                      errorWidget: (context, url, error) => Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          color: Colors.grey.shade200,
                         ),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              department,
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w400,
-                                fontSize: 12,
-                                color: Colors.black,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(Icons.circle, size: 3),
-                            SizedBox(width: 4),
-                            Text(
-                              '$readableDate ',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w400,
-                                fontSize: 12,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ],
+                        child: const Icon(
+                          Icons.person,
+                          color: Colors.grey,
+                          size: 16,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-                Icon(Icons.more_horiz, size: 18),
-              ],
-            ),
-
-            const SizedBox(height: 4),
-
-            if (imageUrl != null) ...[
-              const SizedBox(height: 10),
-
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: CachedNetworkImage(
-                  height: 300,
-                  width: double.infinity,
-                  imageUrl: imageUrl!,
-                  fit: BoxFit.cover,
-
-                  placeholder: (context, url) => Shimmer.fromColors(
-                    baseColor: Colors.grey.shade300,
-                    highlightColor: Colors.grey.shade100,
-                    child: Container(
-                      height: 300,
-                      width: double.infinity,
-                      color: Colors.white,
+                      ),
                     ),
                   ),
 
-                  errorWidget: (context, url, error) => Container(
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Text(
+                            "${widget.username} ",
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          _buildStatusIcon(widget.status),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            widget.department,
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w400,
+                              fontSize: 12,
+                              color: Colors.black,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(Icons.circle, size: 3),
+                          SizedBox(width: 4),
+                          Text(
+                            '$readableDate ',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w400,
+                              fontSize: 12,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const PostOptionsMenu(),
+
+            ],
+          ),
+
+          const SizedBox(height: 4),
+
+          if (widget.imageUrl != null) ...[
+            const SizedBox(height: 10),
+
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: CachedNetworkImage(
+                height: 300,
+                width: double.infinity,
+                imageUrl: widget.imageUrl!,
+                fit: BoxFit.cover,
+
+                placeholder: (context, url) => Shimmer.fromColors(
+                  baseColor: Colors.grey.shade300,
+                  highlightColor: Colors.grey.shade100,
+                  child: Container(
                     height: 300,
                     width: double.infinity,
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.error, color: Colors.red),
+                    color: Colors.white,
                   ),
                 ),
-              ),
-            ],
 
-            const SizedBox(height: 10),
-
-            Text(
-              postcontent,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-            ),
-
-            const SizedBox(height: 10),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _ActivIcon('assets/activicon/repost.svg', repost, (){
-
-                }),
-                _ActivIcon('assets/activicon/like.svg', like, (){}),
-                _ActivIcon(
-                  'assets/activicon/comment.svg',
-                  comment,
-                  () => _openCommentsSheet(context,postId)
+                errorWidget: (context, url, error) => Container(
+                  height: 300,
+                  width: double.infinity,
+                  color: Colors.grey.shade200,
+                  child: const Icon(Icons.error, color: Colors.red),
                 ),
-
-                _ActivIcon('assets/activicon/activity.svg', poll, (){}),
-                _ActivIcon('assets/activicon/bookmark.svg', "", (){}),
-                _ActivIcon('assets/activicon/share.svg', "", (){}),
-              ],
+              ),
             ),
           ],
-        ),
+
+          const SizedBox(height: 10),
+
+          Text(
+            widget.postcontent,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              height: 1.3,
+              fontWeight: FontWeight.w400,
+            ),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+          ),
+
+          const SizedBox(height: 10),
+
+       Row(
+        children: [
+          _ActivIcon(
+            icon: 'assets/activicon/comment.svg',
+            count: widget.comment,
+            onTap: () => _openCommentsSheet(context, widget.postId),
+          ),
+          const SizedBox(width: 20),
+          RepostButton(count: widget.repost),
+          const SizedBox(width: 20),
+          LikeButton(
+            count: widget.like,
+            initialLiked: false, // or pass your backend like state
+          ),
+          const SizedBox(width: 20),
+          _ActivIcon(
+            icon: 'assets/activicon/activity.svg',
+            count: widget.poll,
+            onTap: () {},
+          ),
+          const Spacer(),
+          BookmarkButton(),
+          const SizedBox(width: 14),
+          _ActivIcon(
+            icon: 'assets/activicon/share.svg',
+            count: '',
+            onTap: () => _openShareSheet(context),
+          ),
+        ],
+      ),
+
+
+        ],
       ),
     );
   }
@@ -261,7 +271,7 @@ void _openCommentsSheet(BuildContext context, String postId) {
   Icon _buildStatusIcon(String status) {
     switch (status) {
       case "Student":
-        return const Icon(Icons.school, size: 18, color: Color.fromARGB(255, 33, 89, 243));
+        return const Icon(Icons.school, size: 18, color: Color.fromARGB(255, 0, 4, 255));
       case "Academic Staff":
         return const Icon(Icons.star, size: 18, color: Colors.amber);
       case "Non-Academic Staff":
@@ -295,20 +305,183 @@ class _ActivIcon extends StatelessWidget {
   final String icon;
   final String count;
   final VoidCallback? onTap;
-  const _ActivIcon(this.icon, this.count, this.onTap);
 
+  const _ActivIcon({
+    required this.icon,
+    required this.count,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap:onTap,
+      onTap: onTap,
       child: Row(
         children: [
-          SvgIcon(icon, color: const Color.fromARGB(255, 45, 45, 45), size: 14),
-          const SizedBox(width: 4),
-          if (count.isNotEmpty)
-            Text(count, style: const TextStyle(color: Colors.grey)),
+          SvgIcon(icon, color: const Color.fromARGB(255, 24, 24, 24), size: 18),
+          if (count.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            Text(
+              count,
+              style: const TextStyle(
+                color: Color.fromARGB(255, 46, 46, 46),
+                fontSize: 13,
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class LikeButton extends StatefulWidget {
+  final String count;
+  final bool initialLiked;
+
+  const LikeButton({
+    super.key,
+    required this.count,
+    this.initialLiked = false,
+  });
+
+  @override
+  State<LikeButton> createState() => _LikeButtonState();
+}
+
+class _LikeButtonState extends State<LikeButton>
+    with SingleTickerProviderStateMixin {
+  late bool isLiked;
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    isLiked = widget.initialLiked;
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _scaleAnimation = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 50),
+    ]).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) _controller.reset();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggleLike() {
+    setState(() => isLiked = !isLiked);
+    _controller.forward();
+    // TODO: call your backend to save like
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggleLike,
+      child: Row(
+        children: [
+          ScaleTransition(
+            scale: _scaleAnimation,
+            child: SvgIcon(
+              isLiked
+                  ? 'assets/activicon/like-filled.svg'
+                  : 'assets/activicon/like.svg',
+              color: isLiked ? Colors.red : const Color.fromARGB(255, 17, 17, 17),
+              size: 18,
+            ),
+          ),
+          if (widget.count.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Text(
+              widget.count,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class BookmarkButton extends StatefulWidget {
+  const BookmarkButton({super.key});
+
+  @override
+  State<BookmarkButton> createState() => _BookmarkButtonState();
+}
+
+class _BookmarkButtonState extends State<BookmarkButton>
+    with SingleTickerProviderStateMixin {
+  bool isBookmarked = false;
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    _scaleAnimation = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 50),
+    ]).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) _controller.reset();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggleBookmark() {
+    setState(() {
+      isBookmarked = !isBookmarked;
+    });
+    _controller.forward();
+    // TODO: Save bookmark state to backend if needed
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggleBookmark,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: SvgIcon(
+          isBookmarked
+              ? 'assets/activicon/bookmark-filled.svg'
+              : 'assets/activicon/bookmark.svg',
+          color: isBookmarked ? const Color.fromARGB(255, 68, 68, 68) : const Color.fromARGB(255, 17, 17, 17),
+          size: 18,
+        ),
       ),
     );
   }

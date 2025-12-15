@@ -39,6 +39,7 @@ class _MainNavState extends State<NavBar> {
         child: _pages[_currentIndex],
       ),
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
         selectedItemColor: Colors.black,
