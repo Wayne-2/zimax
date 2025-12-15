@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/models/addchatinfo.dart';
+import 'package:zimax/src/models/chatpreview.dart';
 import 'package:zimax/src/models/mediapost.dart';
 import 'package:zimax/src/models/userprofile.dart';
 
@@ -92,6 +93,46 @@ final zimaxHomePostsProvider =
       );
 });
 
+// chatpreview
+class ChatPreviewNotifier extends StateNotifier<Map<String, ChatPreview>> {
+  ChatPreviewNotifier() : super({});
 
+  void onNewMessage({
+    required String chatroomId,
+    required String message,
+    required DateTime createdAt,
+    required bool isMine,
+  }) {
+    final current = state[chatroomId];
 
+    state = {
+      ...state,
+      chatroomId: ChatPreview(
+        chatroomId: chatroomId,
+        lastMessage: message,
+        lastMessageTime: createdAt,
+        unreadCount: isMine ? 0 : (current?.unreadCount ?? 0) + 1,
+      ),
+    };
+  }
 
+  void markAsRead(String chatroomId) {
+    final preview = state[chatroomId];
+    if (preview == null) return;
+
+    state = {
+      ...state,
+      chatroomId: ChatPreview(
+        chatroomId: chatroomId,
+        lastMessage: preview.lastMessage,
+        lastMessageTime: preview.lastMessageTime,
+        unreadCount: 0,
+      ),
+    };
+  }
+}
+
+final chatPreviewProvider =
+    StateNotifierProvider<ChatPreviewNotifier, Map<String, ChatPreview>>(
+  (ref) => ChatPreviewNotifier(),
+);

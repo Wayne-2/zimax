@@ -1,10 +1,12 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zimax/src/services/riverpod.dart';
 
-class Chatroom extends StatefulWidget {
+class Chatroom extends ConsumerStatefulWidget {
   final String roomId;
   final Map friend;
 
@@ -15,18 +17,13 @@ class Chatroom extends StatefulWidget {
   });
 
   @override
-  State<Chatroom> createState() => _ChatroomState();
+  ConsumerState<Chatroom> createState() => _ChatroomState();
 }
 
-class _ChatroomState extends State<Chatroom> {
+class _ChatroomState extends ConsumerState<Chatroom> {
   final supabase = Supabase.instance.client;
   Map<String, dynamic>? selectedMessage;
   Map<String, dynamic>? replyTo;
-
-  String _formatTime(String isoTime) {
-    final dt = DateTime.parse(isoTime).toLocal();
-    return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
-  }
 
   final List<Map<String, dynamic>> messages = [];
   final ScrollController scroll = ScrollController();
@@ -39,6 +36,11 @@ class _ChatroomState extends State<Chatroom> {
     super.initState();
     loadMessages();
     subscribeRealtime();
+
+    // Mark as read on open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(chatPreviewProvider.notifier).markAsRead(widget.roomId);
+    });
   }
 
   @override
@@ -47,6 +49,11 @@ class _ChatroomState extends State<Chatroom> {
     controller.dispose();
     scroll.dispose();
     super.dispose();
+  }
+
+  String _formatTime(String isoTime) {
+    final dt = DateTime.parse(isoTime).toLocal();
+    return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
   }
 
   Future<void> loadMessages() async {
@@ -65,10 +72,11 @@ class _ChatroomState extends State<Chatroom> {
   }
 
   void subscribeRealtime() {
+    final myId = supabase.auth.currentUser!.id;
+
     channel = supabase.channel("room-${widget.roomId}");
 
-    channel!
-        .onPostgresChanges(
+    channel!.onPostgresChanges(
       event: PostgresChangeEvent.insert,
       schema: "public",
       table: "messages",
@@ -79,12 +87,26 @@ class _ChatroomState extends State<Chatroom> {
       ),
       callback: (payload) {
         final record = payload.newRecord;
-        setState(() => messages.add(record));
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => scrollToBottom());
+        final isMine = record['sender'] == myId;
+
+        // Only add if not already in local messages
+        if (!messages.any((m) => m['id'] == record['id'])) {
+          setState(() => messages.add(record));
+        }
+
+        // Update chat preview only for incoming messages
+        if (!isMine) {
+          ref.read(chatPreviewProvider.notifier).onNewMessage(
+            chatroomId: widget.roomId,
+            message: record['message'],
+            createdAt: DateTime.parse(record['created_at']),
+            isMine: false,
+          );
+        }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
       },
-    )
-        .subscribe();
+    ).subscribe();
   }
 
   Future<void> send() async {
@@ -93,18 +115,30 @@ class _ChatroomState extends State<Chatroom> {
 
     final uid = supabase.auth.currentUser!.id;
 
-    await supabase.from("messages").insert({
+    // Insert message and get returned record
+    final inserted = await supabase.from("messages").insert({
       "chatroom_id": widget.roomId,
       "sender": uid,
       "message": text,
       "reply_to": replyTo != null ? replyTo!["id"] : null,
-    });
+    }).select().single();
 
     controller.clear();
 
     setState(() {
       replyTo = null;
+      messages.add(inserted); // immediate UI update
     });
+
+    // Update preview for outgoing message
+    ref.read(chatPreviewProvider.notifier).onNewMessage(
+      chatroomId: widget.roomId,
+      message: inserted["message"],
+      createdAt: DateTime.parse(inserted["created_at"]),
+      isMine: true,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
   }
 
   void scrollToBottom() {
@@ -131,7 +165,6 @@ class _ChatroomState extends State<Chatroom> {
               },
               child: Container(color: Colors.transparent),
             ),
-
             Positioned(
               top: 200,
               right: isMe ? 20 : null,
@@ -145,14 +178,13 @@ class _ChatroomState extends State<Chatroom> {
                   children: [
                     _menuItem(Icons.reply, "Reply", () {
                       setState(() {
-                        replyTo = msg as Map<String, dynamic>;
+                        replyTo = Map<String, dynamic>.from(msg);
                         selectedMessage = null;
                       });
                       Navigator.pop(context);
                     }),
                     _menuItem(Icons.copy, "Copy", () {
-                      Clipboard.setData(
-                          ClipboardData(text: msg["message"]));
+                      Clipboard.setData(ClipboardData(text: msg["message"]));
                     }),
                     if (isMe)
                       _menuItem(Icons.delete, "Delete", () {
@@ -186,7 +218,7 @@ class _ChatroomState extends State<Chatroom> {
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 243, 243, 243),
-      appBar: _buildWhatsAppAppBar(),
+      appBar: _buildAppBar(),
       body: Column(
         children: [
           Expanded(child: _buildMessages(myId)),
@@ -196,14 +228,13 @@ class _ChatroomState extends State<Chatroom> {
     );
   }
 
-  AppBar _buildWhatsAppAppBar() {
+  AppBar _buildAppBar() {
     return AppBar(
       elevation: 0,
       leadingWidth: 50,
       titleSpacing: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back,
-            color: Color.fromARGB(255, 7, 7, 7)),
+        icon: const Icon(Icons.arrow_back, color: Colors.black87),
         onPressed: () => Navigator.pop(context),
       ),
       title: Row(
@@ -219,16 +250,15 @@ class _ChatroomState extends State<Chatroom> {
               Text(
                 widget.friend["name"],
                 style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: const Color.fromARGB(255, 7, 7, 7),
-                ),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87),
               ),
               Text(
                 "Online",
                 style: GoogleFonts.poppins(
                   fontSize: 12,
-                  color: const Color.fromARGB(255, 7, 7, 7),
+                  color: Colors.black54,
                 ),
               ),
             ],
@@ -247,7 +277,7 @@ class _ChatroomState extends State<Chatroom> {
   Widget _buildMessages(String myId) {
     return ListView.builder(
       controller: scroll,
-      padding: const EdgeInsets.symmetric( vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: messages.length,
       itemBuilder: (_, i) {
         final msg = messages[i];
@@ -257,37 +287,27 @@ class _ChatroomState extends State<Chatroom> {
 
         return GestureDetector(
           onLongPress: () {
-            setState(() {
-              selectedMessage = msg;
-            });
+            setState(() => selectedMessage = Map<String, dynamic>.from(msg));
             _showMessageMenu(context, msg, isMe);
           },
-
           onHorizontalDragEnd: (details) {
             if (!isMe && details.primaryVelocity! > 150) {
-              // swipe right
-              setState(() => replyTo = msg);
+              setState(() => replyTo = Map<String, dynamic>.from(msg));
             }
-
             if (isMe && details.primaryVelocity! < -150) {
-              // swipe left for sender
-              setState(() => replyTo = msg);
+              setState(() => replyTo = Map<String, dynamic>.from(msg));
             }
           },
-
           child: Container(
-            color: isSelected
-                ? Colors.black.withOpacity(0.08)
-                : Colors.transparent,
+            color: isSelected ? Colors.black.withOpacity(0.08) : null,
             padding: const EdgeInsets.symmetric(vertical: 2),
-            margin: EdgeInsets.symmetric(horizontal: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 10),
             child: Column(
               crossAxisAlignment:
                   isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 if (msg["reply_to"] != null)
-                  _buildReplyPreviewInsideBubble(msg["reply_to"], isMe),
-
+                  _buildReplyPreview(msg["reply_to"], isMe),
                 Align(
                   alignment:
                       isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -297,9 +317,7 @@ class _ChatroomState extends State<Chatroom> {
                     margin: const EdgeInsets.only(top: 6, bottom: 2),
                     constraints: const BoxConstraints(maxWidth: 270),
                     decoration: BoxDecoration(
-                      color: isMe
-                          ? const Color.fromARGB(255, 51, 51, 51)
-                          : Colors.white,
+                      color: isMe ? Colors.black87 : Colors.white,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(12),
                         topRight: const Radius.circular(12),
@@ -321,9 +339,8 @@ class _ChatroomState extends State<Chatroom> {
                     ),
                   ),
                 ),
-
                 Padding(
-                  padding: const EdgeInsets.only(left: 4, right: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
                     _formatTime(msg["created_at"]),
                     style: GoogleFonts.poppins(
@@ -340,12 +357,11 @@ class _ChatroomState extends State<Chatroom> {
     );
   }
 
-  Widget _buildReplyPreviewInsideBubble(String replyId, bool isMe) {
+  Widget _buildReplyPreview(String replyId, bool isMe) {
     final replyMsg = messages
-      .cast<Map<String, dynamic>>()
-      .firstWhereOrNull((m) => m['id'] == replyId);
-
-  if (replyMsg == null) return SizedBox.shrink();
+        .cast<Map<String, dynamic>>()
+        .firstWhereOrNull((m) => m['id'] == replyId);
+    if (replyMsg == null) return const SizedBox.shrink();
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -363,7 +379,7 @@ class _ChatroomState extends State<Chatroom> {
               width: 3,
               height: 25,
               decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 255, 255, 255),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -373,10 +389,7 @@ class _ChatroomState extends State<Chatroom> {
                 replyMsg["message"],
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.white70 
-                ),
+                style: GoogleFonts.poppins(fontSize: 12, color: Colors.white70),
               ),
             ),
           ],
@@ -410,8 +423,7 @@ class _ChatroomState extends State<Chatroom> {
         children: [
           if (replyTo != null)
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
@@ -423,7 +435,7 @@ class _ChatroomState extends State<Chatroom> {
                     width: 3,
                     height: 25,
                     decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 0, 0, 0),
+                      color: Colors.black,
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
@@ -434,23 +446,17 @@ class _ChatroomState extends State<Chatroom> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: Colors.black87,
-                      ),
+                          fontSize: 13, color: Colors.black87),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
-                    onPressed: () {
-                      setState(() => replyTo = null);
-                    },
+                    onPressed: () => setState(() => replyTo = null),
                   ),
                 ],
               ),
             ),
-
           const SizedBox(height: 6),
-
           Row(
             children: [
               IconButton(
@@ -458,7 +464,6 @@ class _ChatroomState extends State<Chatroom> {
                     color: Colors.black54),
                 onPressed: () {},
               ),
-
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -478,9 +483,7 @@ class _ChatroomState extends State<Chatroom> {
                   ),
                 ),
               ),
-
               const SizedBox(width: 8),
-
               CircleAvatar(
                 backgroundColor: Colors.black,
                 child: IconButton(

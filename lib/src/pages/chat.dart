@@ -9,6 +9,7 @@ import 'package:zimax/src/components/chatroom.dart';
 import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/models/chat_item_hive.dart';
 import 'package:zimax/src/models/chatitem.dart';
+import 'package:zimax/src/models/chatpreview.dart';
 import 'package:zimax/src/models/mediapost.dart';
 import 'package:zimax/src/models/story.dart';
 import 'package:zimax/src/pages/extrapage.dart/addchat.dart';
@@ -45,6 +46,8 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
     _syncWithSupabase();
     loadStatus();
     subscribeRealtime();
+
+    subscribeChatPreviews();
   }
 
   @override
@@ -88,7 +91,7 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
           await supabase.from('user_profile').select().eq('id', otherId).single();
 
       final lastMsg = r['last_message']?.isNotEmpty == true
-          ? r['last_message'][0]['content']
+          ? r['last_message'][0]['message']
           : "Start a conversation";
 
       final time = r['last_message']?.isNotEmpty == true
@@ -113,6 +116,34 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
         ..sort((a, b) => b.time.compareTo(a.time));
     });
   }
+
+  void subscribeChatPreviews() {
+  final myId = supabase.auth.currentUser!.id;
+
+  _channel = supabase.channel('chat_preview_channel');
+
+  _channel!
+      .onPostgresChanges(
+    event: PostgresChangeEvent.insert,
+    schema: 'public',
+    table: 'messages',
+    callback: (payload) {
+      final record = payload.newRecord;
+
+      // Ignore my own messages
+      if (record['sender'] == myId) return;
+
+      final chatroomId = record['chatroom_id'];
+
+      ref.read(chatPreviewProvider.notifier).onNewMessage(
+        chatroomId: chatroomId,
+        message: record['message'],
+        createdAt: DateTime.parse(record['created_at']),
+        isMine: false,
+      );
+    },
+  ).subscribe();
+}
 
   /// Fetch status posts
   Future<void> loadStatus() async {
@@ -249,6 +280,7 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider)!;
+    // final previews = ref.watch(chatPreviewProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -427,67 +459,120 @@ Map<String, List<StoryItem>> groupStoriesByUser(List<StoryItem> stories) {
         ]),
       );
 
-  Widget _chatList() {
-    if (chats.isEmpty) {
-      return const Expanded(
-        child: Center(child: Text("Tap on New to start conversation")),
-      );
-    }
+Widget _chatList() {
+  final previews = ref.watch(chatPreviewProvider);
 
-    return Expanded(
-      child: ListView.builder(
-        itemCount: chats.length,
-        itemBuilder: (_, i) => _chatTile(chats[i]),
-      ),
+  if (chats.isEmpty) {
+    return const Expanded(
+      child: Center(child: Text("Tap on New to start conversation")),
     );
   }
 
-  Widget _chatTile(ChatItemHive chat) => InkWell(
-        onTap: () async {
-          final roomId = await getOrCreateRoom(chat.userId);
+  // Sort chats: latest message first using previews if available
+  final sortedChats = [...chats];
+  sortedChats.sort((a, b) {
+    final aTime = previews[a.roomId]?.lastMessageTime ?? DateTime.parse(a.time);
+    final bTime = previews[b.roomId]?.lastMessageTime ?? DateTime.parse(b.time);
+    return bTime.compareTo(aTime);
+  });
 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => Chatroom(
-                roomId: roomId,
-                friend: {
-                  "id": chat.userId,
-                  "name": chat.name,
-                  "avatar": chat.avatar,
-                },
+  return Expanded(
+    child: ListView.builder(
+      itemCount: sortedChats.length,
+      itemBuilder: (_, i) {
+        final chat = sortedChats[i];
+        final preview = previews[chat.roomId];
+
+        return _chatTile(
+          chat,
+          preview: preview,
+        );
+      },
+    ),
+  );
+}
+
+Widget _chatTile(
+  ChatItemHive chat, {
+  ChatPreview? preview,
+}) =>
+    InkWell(
+      onTap: () async {
+        final roomId = await getOrCreateRoom(chat.userId);
+
+        // Mark messages as read immediately
+        ref.read(chatPreviewProvider.notifier).markAsRead(roomId);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => Chatroom(
+              roomId: roomId,
+              friend: {
+                "id": chat.userId,
+                "name": chat.name,
+                "avatar": chat.avatar,
+              },
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.black12, width: .4)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundImage: NetworkImage(chat.avatar),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    chat.name,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    preview?.lastMessage ?? chat.preview,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
               ),
             ),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.black12, width: .4)),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(radius: 20, backgroundImage: NetworkImage(chat.avatar)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(chat.name,
-                        style: GoogleFonts.poppins(
-                            fontSize: 14, fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 2),
-                    Text(chat.preview,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                            fontSize: 13, color: Colors.black54)),
-                  ],
+            if (preview != null && preview.unreadCount > 0)
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color.fromARGB(255, 0, 0, 0),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              )
-            ],
-          ),
+                child: Text(
+                  preview.unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
         ),
-      );
+      ),
+    );
+
 
   Widget _fab() => AnimatedBuilder(
         animation: Listenable.merge([_intro, _pulse]),
@@ -537,3 +622,4 @@ Map<String, List<StoryItem>> groupStoriesByUser(List<StoryItem> stories) {
         ),
       );
 }
+
