@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
@@ -157,7 +159,7 @@ class _CommentSheetState extends State<CommentSheet> {
                 child: loading
                     ? ListView.builder(
                         itemCount: 6,
-                        itemBuilder: (_, __) => commentShimmer(),
+                        itemBuilder: (_, _) => commentShimmer(),
                       )
                     : comments.isEmpty
                     ? Center(

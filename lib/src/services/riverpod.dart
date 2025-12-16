@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/models/addchatinfo.dart';
 import 'package:zimax/src/models/chatpreview.dart';
+import 'package:zimax/src/models/communitymodel.dart';
 import 'package:zimax/src/models/mediapost.dart';
 import 'package:zimax/src/models/userprofile.dart';
 
@@ -136,3 +137,17 @@ final chatPreviewProvider =
     StateNotifierProvider<ChatPreviewNotifier, Map<String, ChatPreview>>(
   (ref) => ChatPreviewNotifier(),
 );
+
+
+// community provider
+final recentCommunitiesProvider =
+    FutureProvider<List<CommunityModel>>((ref) async {
+  final supabase = Supabase.instance.client;
+
+  final data = await supabase.rpc('get_recent_communities');
+
+  return (data as List)
+      .map((e) => CommunityModel.fromMap(e))
+      .toList();
+});
+

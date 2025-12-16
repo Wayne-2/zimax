@@ -10,7 +10,7 @@ import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/models/chat_item_hive.dart';
 import 'package:zimax/src/models/chatitem.dart';
 import 'package:zimax/src/models/chatpreview.dart';
-import 'package:zimax/src/models/mediapost.dart';
+// import 'package:zimax/src/models/mediapost.dart';
 import 'package:zimax/src/models/story.dart';
 import 'package:zimax/src/pages/extrapage.dart/addchat.dart';
 import 'package:zimax/src/pages/extrapage.dart/storypage.dart';
@@ -31,148 +31,276 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
 
   List<StoryItem> stories = [];
   bool loading = true;
+  bool isLoadingChats = false;
 
-  RealtimeChannel? _channel;
+  // Separate channels for better management
+  RealtimeChannel? _chatPreviewChannel;
+  RealtimeChannel? _storyChannel;
 
   late AnimationController _intro;
   late AnimationController _pulse;
   late Animation<double> fade, slide, bounce, pulseAnim;
 
+  // Search functionality
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
     _setupAnimations();
-    _loadHive();
-    _syncWithSupabase();
-    loadStatus();
-    subscribeRealtime();
-
-    subscribeChatPreviews();
+    _initializeChat();
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
     _intro.dispose();
     _pulse.dispose();
-    _channel?.unsubscribe();
+    _chatPreviewChannel?.unsubscribe();
+    _storyChannel?.unsubscribe();
     super.dispose();
+  }
+
+  /// Initialize chat data and subscriptions
+  Future<void> _initializeChat() async {
+    await _loadHive();
+    await _syncWithSupabase();
+    await loadStatus();
+    subscribeChatPreviews();
+    subscribeStoryRealtime();
   }
 
   /// Load saved chats from Hive
   Future<void> _loadHive() async {
-    chatBox = Hive.box<ChatItemHive>('chatBox');
+    try {
+      chatBox = Hive.box<ChatItemHive>('chatBox');
 
-    setState(() {
-      chats = chatBox.values.toList();
-      chats.sort((a, b) => b.time.compareTo(a.time));
-    });
+      setState(() {
+        chats = chatBox.values.toList();
+        chats.sort((a, b) => b.time.compareTo(a.time));
+      });
+    } catch (e) {
+      debugPrint('Error loading Hive: $e');
+    }
   }
 
   /// Sync chats with Supabase chatrooms
   Future<void> _syncWithSupabase() async {
-    final uid = supabase.auth.currentUser!.id;
+    if (isLoadingChats) return;
 
-    final rooms = await supabase
-        .from('chatrooms')
-        .select("""
-          id,
-          user1,
-          user2,
-          created_at,
-          last_message:messages(limit:1, order:created_at.desc)
-        """)
-        .or('user1.eq.$uid,user2.eq.$uid');
+    setState(() => isLoadingChats = true);
 
-    Map<String, ChatItemHive> merged = {for (var c in chats) c.roomId: c};
+    try {
+      final uid = supabase.auth.currentUser?.id;
+      if (uid == null) {
+        throw Exception('User not authenticated');
+      }
 
-    for (final r in rooms) {
-      final otherId = r['user1'] == uid ? r['user2'] : r['user1'];
-      final profile =
-          await supabase.from('user_profile').select().eq('id', otherId).single();
+      final rooms = await supabase
+          .from('chatrooms')
+          .select("""
+            id,
+            user1,
+            user2,
+            created_at,
+            last_message:messages(message, created_at)
+          """)
+          .or('user1.eq.$uid,user2.eq.$uid');
 
-      final lastMsg = r['last_message']?.isNotEmpty == true
-          ? r['last_message'][0]['message']
-          : "Start a conversation";
+      if (rooms.isEmpty) {
+        setState(() {
+          chats = [];
+          isLoadingChats = false;
+        });
+        return;
+      }
 
-      final time = r['last_message']?.isNotEmpty == true
-          ? r['last_message'][0]['created_at']
-          : r['created_at'];
+      // Batch fetch all user profiles
+      final otherIds = rooms
+          .map((r) => r['user1'] == uid ? r['user2'] : r['user1'])
+          .toSet()
+          .toList();
 
-      merged[r['id']] = ChatItemHive(
-        roomId: r['id'],
-        userId: otherId,
-        name: profile['fullname'],
-        avatar: profile['profile_image_url'],
-        preview: lastMsg,
-        time: time,
-        online: false,
-      );
+      // Fetch profiles one by one or use filter
+      final profiles = <Map<String, dynamic>>[];
+      for (final id in otherIds) {
+        try {
+          final profile = await supabase
+              .from('user_profile')
+              .select()
+              .eq('id', id)
+              .maybeSingle();
+          if (profile != null) {
+            profiles.add(profile);
+          }
+        } catch (e) {
+          debugPrint('Error fetching profile for $id: $e');
+        }
+      }
 
-      await chatBox.put(r['id'], merged[r['id']]!);
+      final profileMap = {for (var p in profiles) p['id']: p};
+
+      // Build chat items
+      final newChats = <ChatItemHive>[];
+      for (final r in rooms) {
+        final otherId = r['user1'] == uid ? r['user2'] : r['user1'];
+        final profile = profileMap[otherId];
+
+        if (profile == null) continue;
+
+        // Get the last message from the messages array
+        final messages = r['last_message'] as List?;
+        String lastMsg = "Start a conversation";
+        String time = r['created_at'];
+
+        if (messages != null && messages.isNotEmpty) {
+          // Sort messages by created_at to get the latest
+          messages.sort((a, b) => 
+            DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at']))
+          );
+          lastMsg = messages[0]['message'] ?? lastMsg;
+          time = messages[0]['created_at'];
+        }
+
+        final chatItem = ChatItemHive(
+          roomId: r['id'],
+          userId: otherId,
+          name: profile['fullname'] ?? 'Unknown',
+          avatar: profile['profile_image_url'] ?? '',
+          preview: lastMsg,
+          time: time,
+          online: false,
+        );
+
+        await chatBox.put(r['id'], chatItem);
+        newChats.add(chatItem);
+      }
+
+      setState(() {
+        chats = newChats..sort((a, b) => b.time.compareTo(a.time));
+        isLoadingChats = false;
+      });
+    } catch (e) {
+      debugPrint('Error syncing chats: $e');
+      setState(() => isLoadingChats = false);
+
+      // if (mounted) {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     SnackBar(
+      //       content: Text('Failed to sync chats: ${e.toString()}'),
+      //       backgroundColor: Colors.red,
+      //     ),
+      //   );
+      // }
     }
-
-    setState(() {
-      chats = merged.values.toList()
-        ..sort((a, b) => b.time.compareTo(a.time));
-    });
   }
 
+  /// Subscribe to chat preview updates
   void subscribeChatPreviews() {
-  final myId = supabase.auth.currentUser!.id;
+    final myId = supabase.auth.currentUser?.id;
+    if (myId == null) return;
 
-  _channel = supabase.channel('chat_preview_channel');
+    _chatPreviewChannel = supabase.channel('chat_preview_channel');
 
-  _channel!
-      .onPostgresChanges(
-    event: PostgresChangeEvent.insert,
-    schema: 'public',
-    table: 'messages',
-    callback: (payload) {
-      final record = payload.newRecord;
+    _chatPreviewChannel!
+        .onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'messages',
+      callback: (payload) async {
+        try {
+          final record = payload.newRecord;
 
-      // Ignore my own messages
-      if (record['sender'] == myId) return;
+          // Ignore my own messages for preview updates
+          if (record['sender'] == myId) return;
 
-      final chatroomId = record['chatroom_id'];
+          final chatroomId = record['chatroom_id'] as String?;
+          final message = record['message'] as String? ?? '';
+          final createdAt = record['created_at'] as String?;
 
-      ref.read(chatPreviewProvider.notifier).onNewMessage(
-        chatroomId: chatroomId,
-        message: record['message'],
-        createdAt: DateTime.parse(record['created_at']),
-        isMine: false,
-      );
-    },
-  ).subscribe();
-}
+          if (chatroomId == null || createdAt == null) return;
+
+          // Update chat preview in Hive
+          final existingChat = chatBox.get(chatroomId);
+          if (existingChat != null) {
+            final updatedChat = ChatItemHive(
+              roomId: existingChat.roomId,
+              userId: existingChat.userId,
+              name: existingChat.name,
+              avatar: existingChat.avatar,
+              preview: message,
+              time: createdAt,
+              online: existingChat.online,
+            );
+
+            await chatBox.put(chatroomId, updatedChat);
+
+            // Update local state
+            setState(() {
+              final index = chats.indexWhere((c) => c.roomId == chatroomId);
+              if (index != -1) {
+                chats[index] = updatedChat;
+                // Move to top
+                chats.removeAt(index);
+                chats.insert(0, updatedChat);
+              }
+            });
+          }
+
+          // Update Riverpod provider for unread count
+          ref.read(chatPreviewProvider.notifier).onNewMessage(
+                chatroomId: chatroomId,
+                message: message,
+                createdAt: DateTime.parse(createdAt),
+                isMine: false,
+              );
+        } catch (e) {
+          debugPrint('Error processing chat preview: $e');
+        }
+      },
+    )
+        .subscribe();
+  }
 
   /// Fetch status posts
   Future<void> loadStatus() async {
-    final posts = await supabase
-        .from('media_posts')
-        .select()
-        .eq('posted_to', 'Story')
-        .order('created_at', ascending: true);
+    try {
+      final posts = await supabase
+          .from('media_posts')
+          .select()
+          .eq('posted_to', 'Story')
+          .order('created_at', ascending: false);
 
-    final postList = List<Map<String, dynamic>>.from(posts);
-    setState(() {
-      stories = postList
-          .map((json) => StoryItem(
-                id: json['id'],
-                name: json['username'] ?? '',
-                avatar: json['pfp'],
-                imageUrl: json['media_url'],
-                text: json['content'],
-              ))
-          .toList();
-      loading = false;
-    });
+      final postList = List<Map<String, dynamic>>.from(posts);
+
+      if (mounted) {
+        setState(() {
+          stories = postList
+              .map((json) => StoryItem(
+                    id: json['id'],
+                    name: json['username'] ?? 'Unknown',
+                    avatar: json['pfp'],
+                    imageUrl: json['media_url'],
+                    text: json['content'],
+                  ))
+              .toList();
+          loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading stories: $e');
+      if (mounted) {
+        setState(() => loading = false);
+      }
+    }
   }
 
   /// Subscribe to Realtime updates for new status posts
-  void subscribeRealtime() {
-    _channel = supabase.channel('status_channel');
+  void subscribeStoryRealtime() {
+    _storyChannel = supabase.channel('story_channel');
 
-    _channel!
+    _storyChannel!
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
@@ -183,34 +311,29 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
             value: 'Story',
           ),
           callback: (payload) {
-            final json = payload.newRecord;
-            final newStory = StoryItem(
-              id: json['id'],
-              name: json['username'] ?? '',
-              avatar: json['pfp'],
-              imageUrl: json['media_url'],
-              text: json['content'],
-            );
+            try {
+              final json = payload.newRecord;
+              final newStory = StoryItem(
+                id: json['id'],
+                name: json['username'] ?? 'Unknown',
+                avatar: json['pfp'],
+                imageUrl: json['media_url'],
+                text: json['content'],
+              );
 
-            setState(() {
-              if (!stories.any((s) => s.id == newStory.id)) stories.add(newStory);
-            });
+              if (mounted) {
+                setState(() {
+                  if (!stories.any((s) => s.id == newStory.id)) {
+                    stories.insert(0, newStory);
+                  }
+                });
+              }
+            } catch (e) {
+              debugPrint('Error processing new story: $e');
+            }
           },
         )
         .subscribe();
-  }
-
-  /// Generate StoryItems from MediaPosts (if needed elsewhere)
-  List<StoryItem> mediaPostsToStories(List<MediaPost> posts) {
-    return posts.map((post) {
-      return StoryItem(
-        id: post.id,
-        name: post.username,
-        avatar: post.pfp,
-        imageUrl: post.mediaUrl,
-        text: post.content,
-      );
-    }).toList();
   }
 
   /// Setup animations
@@ -236,51 +359,85 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
 
   /// Create or get chat room
   Future<String> getOrCreateRoom(String otherUserId) async {
-    final myId = supabase.auth.currentUser!.id;
+    try {
+      final myId = supabase.auth.currentUser?.id;
+      if (myId == null) throw Exception('User not authenticated');
 
-    final existing = await supabase
-        .from('chatrooms')
-        .select('id')
-        .or(
-            'and(user1.eq.$myId,user2.eq.$otherUserId),and(user1.eq.$otherUserId,user2.eq.$myId)')
-        .maybeSingle();
+      final existing = await supabase
+          .from('chatrooms')
+          .select('id')
+          .or(
+              'and(user1.eq.$myId,user2.eq.$otherUserId),and(user1.eq.$otherUserId,user2.eq.$myId)')
+          .maybeSingle();
 
-    if (existing != null) return existing['id'];
+      if (existing != null) return existing['id'];
 
-    final roomId = const Uuid().v4();
-    await supabase.from('chatrooms').insert({
-      "id": roomId,
-      "user1": myId,
-      "user2": otherUserId,
-    });
+      final roomId = const Uuid().v4();
+      await supabase.from('chatrooms').insert({
+        "id": roomId,
+        "user1": myId,
+        "user2": otherUserId,
+      });
 
-    return roomId;
+      return roomId;
+    } catch (e) {
+      debugPrint('Error creating/getting room: $e');
+      rethrow;
+    }
   }
 
+  /// Add new chat
   void addChat(ChatItem item) async {
-    final roomId = await getOrCreateRoom(item.userId);
-    final hiveItem = ChatItemHive(
-      roomId: roomId,
-      userId: item.userId,
-      name: item.name,
-      avatar: item.avatar,
-      preview: item.preview,
-      time: DateTime.now().toIso8601String(),
-      online: item.online,
-    );
+    try {
+      final roomId = await getOrCreateRoom(item.userId);
+      final hiveItem = ChatItemHive(
+        roomId: roomId,
+        userId: item.userId,
+        name: item.name,
+        avatar: item.avatar,
+        preview: item.preview,
+        time: DateTime.now().toIso8601String(),
+        online: item.online,
+      );
 
-    await chatBox.put(roomId, hiveItem);
+      await chatBox.put(roomId, hiveItem);
 
-    setState(() {
-      chats.removeWhere((c) => c.roomId == roomId);
-      chats.insert(0, hiveItem);
-    });
+      setState(() {
+        chats.removeWhere((c) => c.roomId == roomId);
+        chats.insert(0, hiveItem);
+      });
+    } catch (e) {
+      debugPrint('Error adding chat: $e');
+      // if (mounted) {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     SnackBar(
+      //       content: Text('Failed to create chat: ${e.toString()}'),
+      //       backgroundColor: Colors.red,
+      //     ),
+      //   );
+      // }
+    }
+  }
+
+  /// Get filtered chats based on search query
+  List<ChatItemHive> get _filteredChats {
+    if (_searchQuery.isEmpty) return chats;
+
+    return chats.where((chat) {
+      return chat.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          chat.preview.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userProfileProvider)!;
-    // final previews = ref.watch(chatPreviewProvider);
+    final user = ref.watch(userProfileProvider);
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -288,9 +445,13 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
         elevation: 0,
         backgroundColor: Colors.white,
         automaticallyImplyLeading: false,
-        title: Text("Zimax Chat",
-            style:
-                GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
+        title: Text(
+          "Zimax Chat",
+          style: GoogleFonts.poppins(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
           CircleAvatar(
             radius: 16,
@@ -299,29 +460,20 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
           const SizedBox(width: 16),
         ],
       ),
-      body: Column(
-        children: [
-          _searchBar(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Text(
-                  'Story',
-                  style: GoogleFonts.poppins(
-                    color: Colors.black87,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          storyList(context, user, stories),
-          _header(),
-          _chatList(),
-        ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await _syncWithSupabase();
+          await loadStatus();
+        },
+        child: Column(
+          children: [
+            _searchBar(),
+            _buildStoryHeader(),
+            _buildStoryList(user),
+            _buildChatHeader(),
+            _buildChatList(),
+          ],
+        ),
       ),
       floatingActionButton: _fab(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
@@ -338,241 +490,351 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(50),
           ),
           child: TextField(
+            controller: _searchController,
+            onChanged: (value) {
+              setState(() => _searchQuery = value);
+            },
             decoration: InputDecoration(
               border: InputBorder.none,
-              hintText: 'Search...',
+              hintText: 'Search chats...',
               hintStyle: GoogleFonts.poppins(fontSize: 13),
               prefixIcon: const Icon(Icons.manage_search_sharp),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 20),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                  : null,
             ),
           ),
         ),
       );
-      
-Map<String, List<StoryItem>> groupStoriesByUser(List<StoryItem> stories) {
-  final Map<String, List<StoryItem>> grouped = {};
-  for (var story in stories) {
-    if (!grouped.containsKey(story.name)) {
-      grouped[story.name] = [];
-    }
-    grouped[story.name]!.add(story);
-  }
-  return grouped;
-}
 
- Widget storyList(BuildContext context, dynamic user, List<StoryItem> stories) {
-  if (loading) return const Center(child: CircularProgressIndicator());
-  if (stories.isEmpty) return const Center(child: Text("No story available"));
-
-  final groupedStories = groupStoriesByUser(stories);
-  final userList = groupedStories.keys.toList();
-
-  return SizedBox(
-    height: 90,
-    child: ListView.builder(
-      scrollDirection: Axis.horizontal,
-      itemCount: userList.length,
-      padding: const EdgeInsets.all(10),
-      itemBuilder: (_, index) {
-        final username = userList[index];
-        final userStories = groupedStories[username]!;
-        final firstStory = userStories[0]; // Use first story as avatar
-
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StoryPage(
-                  stories: userStories, // Pass only this user's stories
-                  initialIndex: 0,
-                ),
+  Widget _buildStoryHeader() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Text(
+              'Story',
+              style: GoogleFonts.poppins(
+                color: Colors.black87,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundImage: NetworkImage(firstStory.avatar ?? ''),
-                    ),
-                    if (userStories.length > 1)
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: Container(
-                          // padding: const EdgeInsets.all(2),
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: const Color.fromARGB(255, 0, 0, 0),
-                            // shape: BoxShape.circle,
-                            border: Border.all(color:Colors.white),
-                            borderRadius: BorderRadius.circular(20)
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${userStories.length}',
-                              style: const TextStyle(
+            ),
+          ],
+        ),
+      );
+
+  Map<String, List<StoryItem>> _groupStoriesByUser(List<StoryItem> stories) {
+    final Map<String, List<StoryItem>> grouped = {};
+    for (var story in stories) {
+      grouped.putIfAbsent(story.name, () => []).add(story);
+    }
+    return grouped;
+  }
+
+  Widget _buildStoryList(dynamic user) {
+    if (loading) {
+      return const SizedBox(
+        height: 90,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (stories.isEmpty) {
+      return SizedBox(
+        height: 90,
+        child: Center(
+          child: Text(
+            "No stories available",
+            style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54),
+          ),
+        ),
+      );
+    }
+
+    final groupedStories = _groupStoriesByUser(stories);
+    final userList = groupedStories.keys.toList();
+
+    return SizedBox(
+      height: 90,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: userList.length,
+        padding: const EdgeInsets.all(10),
+        itemBuilder: (_, index) {
+          final username = userList[index];
+          final userStories = groupedStories[username]!;
+          final firstStory = userStories[0];
+
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StoryPage(
+                    stories: userStories,
+                    initialIndex: 0,
+                  ),
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundImage: CachedNetworkImageProvider(
+                          firstStory.avatar ?? '',
+                        ),
+                      ),
+                      if (userStories.length > 1)
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              border: Border.all(color: Colors.white, width: 2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${userStories.length}',
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
-                                  fontWeight: FontWeight.bold),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
                         ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      username,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
                       ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    username,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, fontWeight: FontWeight.w400),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
-}
-
-
-  Widget _header() => Padding(
-        padding: const EdgeInsets.all(10),
-        child: Row(children: [
-          Text("Conversations",
-              style:
-                  GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-        ]),
-      );
-
-Widget _chatList() {
-  final previews = ref.watch(chatPreviewProvider);
-
-  if (chats.isEmpty) {
-    return const Expanded(
-      child: Center(child: Text("Tap on New to start conversation")),
-    );
-  }
-
-  // Sort chats: latest message first using previews if available
-  final sortedChats = [...chats];
-  sortedChats.sort((a, b) {
-    final aTime = previews[a.roomId]?.lastMessageTime ?? DateTime.parse(a.time);
-    final bTime = previews[b.roomId]?.lastMessageTime ?? DateTime.parse(b.time);
-    return bTime.compareTo(aTime);
-  });
-
-  return Expanded(
-    child: ListView.builder(
-      itemCount: sortedChats.length,
-      itemBuilder: (_, i) {
-        final chat = sortedChats[i];
-        final preview = previews[chat.roomId];
-
-        return _chatTile(
-          chat,
-          preview: preview,
-        );
-      },
-    ),
-  );
-}
-
-Widget _chatTile(
-  ChatItemHive chat, {
-  ChatPreview? preview,
-}) =>
-    InkWell(
-      onTap: () async {
-        final roomId = await getOrCreateRoom(chat.userId);
-
-        // Mark messages as read immediately
-        ref.read(chatPreviewProvider.notifier).markAsRead(roomId);
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => Chatroom(
-              roomId: roomId,
-              friend: {
-                "id": chat.userId,
-                "name": chat.name,
-                "avatar": chat.avatar,
-              },
-            ),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.black12, width: .4)),
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundImage: NetworkImage(chat.avatar),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    chat.name,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    preview?.lastMessage ?? chat.preview,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.black54,
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ],
               ),
             ),
-            if (preview != null && preview.unreadCount > 0)
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 0, 0, 0),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  preview.unreadCount.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
 
+  Widget _buildChatHeader() => Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            Text(
+              "Conversations",
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildChatList() {
+    final previews = ref.watch(chatPreviewProvider);
+    final filteredChats = _filteredChats;
+
+    if (isLoadingChats) {
+      return const Expanded(
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (filteredChats.isEmpty) {
+      return Expanded(
+        child: Center(
+          child: Text(
+            _searchQuery.isEmpty
+                ? "Tap on New to start conversation"
+                : "No chats found",
+            style: GoogleFonts.poppins(fontSize: 13, color: Colors.black54),
+          ),
+        ),
+      );
+    }
+
+    // Sort chats: latest message first
+    final sortedChats = [...filteredChats];
+    sortedChats.sort((a, b) {
+      final aTime =
+          previews[a.roomId]?.lastMessageTime ?? DateTime.parse(a.time);
+      final bTime =
+          previews[b.roomId]?.lastMessageTime ?? DateTime.parse(b.time);
+      return bTime.compareTo(aTime);
+    });
+
+    return Expanded(
+      child: ListView.builder(
+        itemCount: sortedChats.length,
+        itemBuilder: (_, i) {
+          final chat = sortedChats[i];
+          final preview = previews[chat.roomId];
+
+          return _chatTile(chat, preview: preview);
+        },
+      ),
+    );
+  }
+
+  Widget _chatTile(
+    ChatItemHive chat, {
+    ChatPreview? preview,
+  }) =>
+      InkWell(
+        onTap: () async {
+          try {
+            final roomId = await getOrCreateRoom(chat.userId);
+
+            // Mark messages as read immediately
+            ref.read(chatPreviewProvider.notifier).markAsRead(roomId);
+
+            if (mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => Chatroom(
+                    roomId: roomId,
+                    friend: {
+                      "id": chat.userId,
+                      "name": chat.name,
+                      "avatar": chat.avatar,
+                    },
+                  ),
+                ),
+              );
+            }
+          } catch (e) {
+            debugPrint('Error opening chat: $e');
+            // if (mounted) {
+            //   ScaffoldMessenger.of(context).showSnackBar(
+            //     SnackBar(
+            //       content: Text('Failed to open chat: ${e.toString()}'),
+            //       backgroundColor: Colors.red,
+            //     ),
+            //   );
+            // }
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Colors.black12, width: .4),
+            ),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundImage: CachedNetworkImageProvider(chat.avatar),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      chat.name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      preview?.lastMessage ?? chat.preview,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (preview?.lastMessageTime != null)
+                    Text(
+                      _formatPreviewTime(preview!.lastMessageTime),
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.black45,
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  if (preview != null && preview.unreadCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        preview.unreadCount > 99
+                            ? '99+'
+                            : preview.unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+
+  String _formatPreviewTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+
+    if (diff.inSeconds < 60) return 'Now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+  }
 
   Widget _fab() => AnimatedBuilder(
         animation: Listenable.merge([_intro, _pulse]),
@@ -591,7 +853,7 @@ Widget _chatTile(
           onTap: () async {
             final ChatItem? item = await Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => AddChatPage()),
+              MaterialPageRoute(builder: (_) => const AddChatPage()),
             );
 
             if (item != null) addChat(item);
@@ -604,22 +866,31 @@ Widget _chatTile(
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                    blurRadius: 12,
-                    color: Colors.black.withOpacity(0.25),
-                    offset: const Offset(0, 4)),
+                  blurRadius: 12,
+                  color: Colors.black.withOpacity(0.25),
+                  offset: const Offset(0, 4),
+                ),
               ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SvgIcon("assets/icons/newchat.svg", size: 25, color: Colors.white),
+                SvgIcon(
+                  "assets/icons/newchat.svg",
+                  size: 25,
+                  color: Colors.white,
+                ),
                 const SizedBox(width: 10),
-                const Text("New",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                const Text(
+                  "New",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
         ),
       );
 }
-

@@ -45,13 +45,13 @@ class _GradientCarouselState extends State<GradientCarousel> {
                   imageUrl: widget.images[index],
                   fit: BoxFit.cover,
 
-                  placeholder: (_, __) => Shimmer.fromColors(
+                  placeholder: (_,_) => Shimmer.fromColors(
                     baseColor: Colors.grey.shade300,
                     highlightColor: Colors.grey.shade100,
                     child: Container(color: Colors.white),
                   ),
 
-                  errorWidget: (_, __, ___) => Container(
+                  errorWidget: (_, _, _) => Container(
                     color: Colors.grey.shade200,
                     child: const Icon(Icons.error,
                         size: 40, color: Colors.red),
