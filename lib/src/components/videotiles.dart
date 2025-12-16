@@ -25,7 +25,7 @@ class VideoTileRow extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: videoThumbnails.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 1),
+            separatorBuilder: (_, _) => const SizedBox(width: 1),
             itemBuilder: (context, index) {
               final thumb = videoThumbnails[index];
         

@@ -1,4 +1,6 @@
 // import 'dart:async';
+// ignore_for_file: avoid_print
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,7 +9,6 @@ import 'package:zimax/src/models/chatpreview.dart';
 import 'package:zimax/src/models/communitymodel.dart';
 import 'package:zimax/src/models/mediapost.dart';
 import 'package:zimax/src/models/userprofile.dart';
-
 
 class UserNotifier extends StateNotifier<Userprofile?> {
   UserNotifier() : super(null);
@@ -21,10 +22,11 @@ class UserNotifier extends StateNotifier<Userprofile?> {
   }
 }
 
-final userProfileProvider = StateNotifierProvider<UserNotifier, Userprofile?>((ref) {
+final userProfileProvider = StateNotifierProvider<UserNotifier, Userprofile?>((
+  ref,
+) {
   return UserNotifier();
 });
-
 
 final usersStreamProvider = StreamProvider.autoDispose((ref) {
   final supabase = Supabase.instance.client;
@@ -38,9 +40,9 @@ final usersStreamProvider = StreamProvider.autoDispose((ref) {
       });
 });
 
-
-final userServiceStreamProvider =
-    StreamProvider<List<Map<String, dynamic>>>((ref) {
+final userServiceStreamProvider = StreamProvider<List<Map<String, dynamic>>>((
+  ref,
+) {
   final supabase = Supabase.instance.client;
 
   return supabase
@@ -48,29 +50,30 @@ final userServiceStreamProvider =
       .stream(primaryKey: ['id'])
       .order('created_at')
       .map((rows) {
-    return rows.map((e) {
-      return {
-        'id': e['id'],
-        'fullname': e['fullname'] ?? '',
-        'email': e['email'] ?? '',
-        'status': e['status'] ?? '',
-        'profile_image_url': e['profile_image_url'] ?? '',
-        'created_at': e['created_at'] ?? '',
-      };
-    }).toList();
-  });
+        return rows.map((e) {
+          return {
+            'id': e['id'],
+            'fullname': e['fullname'] ?? '',
+            'email': e['email'] ?? '',
+            'status': e['status'] ?? '',
+            'profile_image_url': e['profile_image_url'] ?? '',
+            'created_at': e['created_at'] ?? '',
+          };
+        }).toList();
+      });
 });
 
 // media_post riverpod streaming
 
-final mediaPostsStreamProvider =
-    StreamProvider.autoDispose<List<MediaPost>>((ref) {
+final mediaPostsStreamProvider = StreamProvider.autoDispose<List<MediaPost>>((
+  ref,
+) {
   final supabase = Supabase.instance.client;
 
   final stream = supabase
       .from('media_posts')
-      .stream(primaryKey: ['id'])         
-      .order('created_at', ascending: false)   
+      .stream(primaryKey: ['id'])
+      .order('created_at', ascending: false)
       .map((rows) {
         return rows.map((e) => MediaPost.fromJson(e)).toList();
       });
@@ -78,8 +81,7 @@ final mediaPostsStreamProvider =
   return stream;
 });
 
-final zimaxHomePostsProvider =
-    StreamProvider<List<MediaPost>>((ref) {
+final zimaxHomePostsProvider = StreamProvider<List<MediaPost>>((ref) {
   final supabase = Supabase.instance.client;
 
   return supabase
@@ -87,11 +89,7 @@ final zimaxHomePostsProvider =
       .stream(primaryKey: ['id'])
       .eq('posted_to', 'Zimax home')
       .order('created_at', ascending: false)
-      .map(
-        (rows) => rows
-            .map((e) => MediaPost.fromJson(e))
-            .toList(),
-      );
+      .map((rows) => rows.map((e) => MediaPost.fromJson(e)).toList());
 });
 
 // chatpreview
@@ -135,19 +133,38 @@ class ChatPreviewNotifier extends StateNotifier<Map<String, ChatPreview>> {
 
 final chatPreviewProvider =
     StateNotifierProvider<ChatPreviewNotifier, Map<String, ChatPreview>>(
-  (ref) => ChatPreviewNotifier(),
-);
-
+      (ref) => ChatPreviewNotifier(),
+    );
 
 // community provider
-final recentCommunitiesProvider =
-    FutureProvider<List<CommunityModel>>((ref) async {
+final recentCommunitiesProvider = FutureProvider<List<CommunityModel>>((
+  ref,
+) async {
   final supabase = Supabase.instance.client;
 
   final data = await supabase.rpc('get_recent_communities');
 
-  return (data as List)
-      .map((e) => CommunityModel.fromMap(e))
+  if (data == null) return [];
+
+  print(data);
+
+  return (data as List<dynamic>)
+      .map((e) => CommunityModel.fromMap(e as Map<String, dynamic>))
       .toList();
+});
+
+
+final isJoinedProvider = FutureProvider.family<bool, String>((ref, communityId) async {
+  final supabase = Supabase.instance.client;
+  final userId = supabase.auth.currentUser!.id;
+
+  final res = await supabase
+      .from('community_members')
+      .select()
+      .eq('community_id', communityId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+  return res != null;
 });
 

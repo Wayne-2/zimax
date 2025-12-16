@@ -70,7 +70,7 @@ class _ImageDisplayState extends State<ImageDisplay> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (_, __) {
+      builder: (_, _) {
         return Opacity(
           opacity: fade.value, // fade entire stack smoothly
           child: Container(

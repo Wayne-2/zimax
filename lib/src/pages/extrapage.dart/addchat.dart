@@ -226,7 +226,7 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
   Widget _buildShimmerList() {
     return ListView.builder(
       itemCount: 5,
-      itemBuilder: (_, __) => shimmerTile(),
+      itemBuilder: (_, _) => shimmerTile(),
     );
   }
 

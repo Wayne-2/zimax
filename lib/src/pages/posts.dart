@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously, strict_top_level_inference, avoid_print
+
 import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -401,12 +403,12 @@ class _PostsState extends ConsumerState<Posts> {
             width: 40,
             height: 40,
             fit: BoxFit.cover,
-            placeholder: (_, __) => Shimmer.fromColors(
+            placeholder: (_, _) => Shimmer.fromColors(
               baseColor: Colors.grey.shade300,
               highlightColor: Colors.grey.shade100,
               child: Container(width: 40, height: 40, color: Colors.white),
             ),
-            errorWidget: (_, __, ___) => Container(
+            errorWidget: (_, _, _) => Container(
               width: 40,
               height: 40,
               color: Colors.grey.shade200,

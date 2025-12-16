@@ -1,8 +1,11 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:zimax/src/components/chatroom.dart';
@@ -540,9 +543,16 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
 
   Widget _buildStoryList(dynamic user) {
     if (loading) {
-      return const SizedBox(
-        height: 90,
-        child: Center(child: CircularProgressIndicator()),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: SizedBox(
+          height: 90,
+          child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: 5,
+          itemBuilder: (_, _) => storyItemShimmer() 
+        ),
+        ),
       );
     }
 
@@ -667,8 +677,11 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
     final filteredChats = _filteredChats;
 
     if (isLoadingChats) {
-      return const Expanded(
-        child: Center(child: CircularProgressIndicator()),
+      return Expanded(
+        child: ListView.builder(
+          itemCount: 5,
+          itemBuilder: (_, _) => chatItemShimmer()
+        ),
       );
     }
 
@@ -893,4 +906,105 @@ class _ChatState extends ConsumerState<Chat> with TickerProviderStateMixin {
           ),
         ),
       );
+}
+Widget chatItemShimmer() {
+  return Shimmer.fromColors(
+    baseColor: Colors.grey.shade300,
+    highlightColor: Colors.grey.shade100,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.black12, width: .4),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Avatar placeholder
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Name placeholder
+                Container(
+                  width: double.infinity,
+                  height: 14,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 6),
+                // Last message placeholder
+                Container(
+                  width: 150,
+                  height: 12,
+                  color: Colors.white,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Time placeholder
+              Container(
+                width: 40,
+                height: 10,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 6),
+              // Unread badge placeholder
+              Container(
+                width: 20,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget storyItemShimmer() {
+  return Shimmer.fromColors(
+    baseColor: Colors.grey.shade300,
+    highlightColor: Colors.grey.shade100,
+    child: Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Circle avatar placeholder
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Username placeholder
+          Container(
+            width: 60,
+            height: 12,
+            color: Colors.white,
+          ),
+        ],
+      ),
+    ),
+  );
 }

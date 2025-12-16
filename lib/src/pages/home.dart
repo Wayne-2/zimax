@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -70,7 +72,7 @@ class _HomeState extends ConsumerState<Home> {
       body: postsAsync.when(
         loading:  () => ListView.builder(
                   itemCount: 4,
-                  itemBuilder: (_, __) => postShimmer(),
+                  itemBuilder: (_, _) => postShimmer(),
                 ),
         error: (err, _) => Center(
           child: Text("Error: $err", style: GoogleFonts.poppins(fontSize: 14)),

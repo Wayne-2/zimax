@@ -211,10 +211,10 @@ Future<void> search(String query) async {
               width: 30,
               height: 30,
               fit: BoxFit.cover,
-              placeholder: (_, __) => Shimmer.fromColors(
+              placeholder: (_, _) => Shimmer.fromColors(
                 baseColor: Colors.grey.shade300,
                 highlightColor: Colors.grey.shade100,
-                child: Container(width: 30, height: 30),
+                child: SizedBox(width: 30, height: 30),
               ),
             ),
           ),

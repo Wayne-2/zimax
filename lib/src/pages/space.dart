@@ -1,7 +1,11 @@
+// ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/models/communitymodel.dart';
 import 'package:zimax/src/pages/extrapage.dart/community.dart';
 import 'package:zimax/src/pages/extrapage.dart/createcommunity.dart';
@@ -21,7 +25,6 @@ class _SpaceState extends ConsumerState<Space> {
 
     // Example communities
     final communitiesAsync = ref.watch(recentCommunitiesProvider);
-
 
     return Scaffold(
       appBar: AppBar(
@@ -58,7 +61,14 @@ class _SpaceState extends ConsumerState<Space> {
                 _searchBar(),
                 Expanded(
                   child: communitiesAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
+                    loading: () => ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      itemCount: 6, // Number of shimmer cards to show
+                      itemBuilder: (context, index) => communityCardShimmer(),
+                    ),
                     error: (e, _) => Center(child: Text(e.toString())),
                     data: (communities) {
                       if (communities.isEmpty) {
@@ -69,13 +79,14 @@ class _SpaceState extends ConsumerState<Space> {
                           ),
                         );
                       }
-
                       return ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         itemCount: communities.length,
-                        itemBuilder: (context, index) {
-                          return _communityCard(communities[index]);
-                        },
+                        itemBuilder: (context, index) =>
+                            _communityCard(communities[index]),
                       );
                     },
                   ),
@@ -153,108 +164,216 @@ class _SpaceState extends ConsumerState<Space> {
   );
 
   Widget _communityCard(CommunityModel community) {
+    final supabase = Supabase.instance.client;
+    final isJoinedAsync = ref.watch(isJoinedProvider(community.id));
+    final user = ref.watch(userProfileProvider);
+    final username = user!.fullname;
 
-    final bool isJoined = false; 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300, width: 0.8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade100,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+    return isJoinedAsync.when(
+      data: (joined) => GestureDetector(
+        onTap: () async {
+          if (joined) {
+            // Already joined → navigate
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => Community(communityId: community.id),
+              ),
+            );
+          } else {
+            // Not joined → join first
+            final res = await supabase.from('community_members').insert({
+              'community_id': community.id,
+              'user_id': supabase.auth.currentUser!.id,
+              'user_name':username,
+              'community_name':community.name,
+              'joined_at': DateTime.now().toIso8601String(),
+            });
+
+            print(res); // check for errors
+
+            // Refresh providers
+            ref.invalidate(isJoinedProvider(community.id));
+            ref.invalidate(recentCommunitiesProvider);
+
+            // Navigate after joining
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => Community(communityId: community.id),
+              ),
+            );
+          }
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300, width: 0.8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.shade100,
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
+          child: Row(
+            children: [
+              // Avatar
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  bottomLeft: Radius.circular(8),
+                ),
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: community.avatarUrl != null
+                          ? NetworkImage(community.avatarUrl!)
+                          : const AssetImage('assets/community_placeholder.png')
+                                as ImageProvider,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+              // Content
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              community.name,
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              "${community.membersCount} members · ${community.isPrivate ? "Private" : "Public"}",
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Join button
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (!joined) {
+                            final res = await supabase
+                                .from('community_members')
+                                .insert({
+                                  'community_id': community.id,
+                                  'user_id': supabase.auth.currentUser!.id,
+                                  'joined_at': DateTime.now().toIso8601String(),
+                                });
+
+                            print(res); // check for errors
+                            ref.invalidate(isJoinedProvider(community.id));
+                            ref.invalidate(recentCommunitiesProvider);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: joined
+                              ? Colors.grey.shade800
+                              : Colors.black,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                        ),
+                        child: Text(
+                          joined ? "Joined" : "Join",
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Row(
-        children: [
-          // Image container (square)
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(8),
-              bottomLeft: Radius.circular(8),
+      loading: () => communityCardShimmer(),
+      error: (e, _) => const SizedBox(),
+    );
+  }
+
+  Widget communityCardShimmer() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300, width: 0.8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade100,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-            child: Container(
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: community.avatarUrl != null
-                      ? NetworkImage(community.avatarUrl!)
-                      : const AssetImage('assets/community_placeholder.png')
-                          as ImageProvider,
-                  fit: BoxFit.cover,
-                ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
-          ),
-
-          // Content
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                        community.name,
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-
-                      Text(
-                        "${community.membersCount} members · ${community.isPrivate ? "Private" : "Public"}",
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      ],
-                    ),
+                  Container(
+                    width: double.infinity,
+                    height: 14,
+                    color: Colors.white,
                   ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => Community()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isJoined
-                          ? Colors
-                                .grey
-                                .shade800 
-                          : Colors.black, 
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                    ),
-                    child: Text(
-                      isJoined ? "Joined" : "Join",
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 6),
+                  Container(width: 100, height: 12, color: Colors.white),
                 ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Container(
+              width: 60,
+              height: 30,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

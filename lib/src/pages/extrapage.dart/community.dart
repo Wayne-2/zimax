@@ -1,9 +1,19 @@
+// ignore_for_file: use_build_context_synchronously
+
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+// import 'package:zimax/src/models/communitymodel.dart';
+import 'package:zimax/src/models/postmodel.dart';
 
 class Community extends StatefulWidget {
-  const Community({super.key});
+  final String communityId;
+  const Community({super.key, required this.communityId});
 
   @override
   State<Community> createState() => _CommunityState();
@@ -11,190 +21,417 @@ class Community extends StatefulWidget {
 
 class _CommunityState extends State<Community> {
   bool joined = false;
+  bool loading = true;
+  CommunityModel? community;
+  int membersCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCommunityData();
+  }
+
+  Future<void> _fetchCommunityData() async {
+    final supabase = Supabase.instance.client;
+    final userId = supabase.auth.currentUser!.id;
+
+    try {
+      final communityRes = await supabase
+          .from('communities')
+          .select('*, community_rules(*)')
+          .eq('id', widget.communityId)
+          .single();
+
+      final joinedRes = await supabase
+          .from('community_members')
+          .select()
+          .eq('community_id', widget.communityId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      final membersRes = await supabase
+       .from('community_members')
+       .select('id')
+       .eq('community_id', widget.communityId);
+
+      setState(() {
+        community = CommunityModel.fromMap(communityRes);
+        joined = joinedRes != null;
+        membersCount = (membersRes as List).length;
+        loading = false;
+      });
+      
+    } catch (e) {
+      setState(() => loading = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        slivers: [
-          _collapsingBanner(),
-          SliverToBoxAdapter(child: _communityHeader()),
-          SliverToBoxAdapter(child: _aboutSection()),
-          SliverToBoxAdapter(child: _rulesSection()),
-          SliverToBoxAdapter(child: _moderatorsBar()),
-          _postList(),
-        ],
-      ),
+      backgroundColor: Colors.grey.shade50,
+      body: loading
+          ? _shimmerLoader()
+          : CustomScrollView(
+              slivers: [
+                _collapsingBanner(),
+                // SliverToBoxAdapter(child: _communityHeader()),
+                SliverToBoxAdapter(child: _aboutSection()),
+                SliverToBoxAdapter(child: _rulesSection()),
+                SliverToBoxAdapter(child: _moderatorsBar()),
+                SliverToBoxAdapter(child: _navigationTiles()),
+              ],
+            ),
     );
   }
 
-  Widget _collapsingBanner() {
-    return SliverAppBar(
-      expandedHeight: 180,
-      pinned: true,
-      floating: false,
-      elevation: 0,
-      backgroundColor: Colors.white,
-
-      // COLLAPSED HEADER (shows only when scrolled)
-      title: LayoutBuilder(
-        builder: (context, constraints) {
-          final isCollapsed = constraints.maxHeight < 120;
-
-          return AnimatedOpacity(
-            opacity: isCollapsed ? 1 : 0,
-            duration: const Duration(milliseconds: 250),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundImage: CachedNetworkImageProvider(
-                    "https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/media/zimaxpfp.png",
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  "Zimax Collaborators",
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () => setState(() => joined = !joined),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: joined ? Colors.grey.shade800 : Colors.black,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      joined ? "Joined" : "Join",
-                      style: GoogleFonts.poppins(
-                          fontSize: 12, color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
+  Widget _shimmerLoader() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: ListView(
+        children: List.generate(
+          5,
+          (index) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
             ),
-          );
-        },
-      ),
-
-      flexibleSpace: FlexibleSpaceBar(
-        background: CachedNetworkImage(
-          imageUrl:
-              "https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/media/zimaxpfp.png",
-          fit: BoxFit.cover,
+          ),
         ),
       ),
     );
   }
+Widget _collapsingBanner() {
+  const double expanded = 260;
 
-  // --------------------------------------------------
-  //  MAIN COMMUNITY HEADER (visible when expanded)
-  // --------------------------------------------------
-  Widget _communityHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundImage: CachedNetworkImageProvider(
-              "https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/media/zimaxpfp.png",
+  return SliverAppBar(
+    expandedHeight: expanded,
+    pinned: true,
+    stretch: true,
+    elevation: 0,
+    backgroundColor: Colors.white,
+    systemOverlayStyle: SystemUiOverlayStyle.dark,
+    flexibleSpace: LayoutBuilder(
+      builder: (context, constraints) {
+        // Compute collapse factor t: 1.0 (expanded) -> 0.0 (collapsed)
+        final double maxH = expanded + MediaQuery.of(context).padding.top;
+        final double minH = kToolbarHeight + MediaQuery.of(context).padding.top;
+        final double currentH = constraints.biggest.height;
+        final double t = ((currentH - minH) / (maxH - minH)).clamp(0.0, 1.0);
+
+        final String banner = community?.bannerUrl ?? 'https://via.placeholder.com/1200x600';
+        final String avatar = community?.avatarUrl ?? 'https://via.placeholder.com/300';
+        final String name = community?.name ?? '';
+
+        final Color titleColor = Color.lerp(Colors.black, Colors.white, t) ?? Colors.black;
+        final double avatarSize = lerpDouble(32, 68, t)!; // grows when expanded
+        final double titleSize = lerpDouble(16, 22, t)!;
+        final double btnRadius = lerpDouble(8, 10, t)!;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // Background image with stretch/zoom and slight blur when over-stretched
+            Positioned.fill(
+              child: CachedNetworkImage(
+                imageUrl: banner,
+                fit: BoxFit.cover,
+                placeholder: (context, _) => Container(color: Colors.grey.shade300),
+                errorWidget: (context, _, __) => Container(color: Colors.grey.shade200),
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
 
-          // NAME + MEMBER COUNT
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Zimax Collaborators",
-                  style: GoogleFonts.poppins(
-                      fontSize: 20, fontWeight: FontWeight.w700),
+            // Subtle blur on stretch
+            if (t > 0.95)
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: (t - 0.95) * 60, sigmaY: (t - 0.95) * 60),
+                  child: const SizedBox.expand(),
                 ),
-                Text(
-                  "350k members · 1.2k online",
-                  style: GoogleFonts.poppins(
-                      fontSize: 13, color: Colors.grey.shade600),
+              ),
+
+            // Gradient scrim for contrast
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.10 * t),
+                      Colors.black.withOpacity(0.40 * t),
+                      Colors.black.withOpacity(0.65 * t),
+                    ],
+                    stops: const [0.2, 0.6, 1.0],
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
 
-          // JOIN BUTTON
-          ElevatedButton(
-            onPressed: () => setState(() => joined = !joined),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: joined ? Colors.grey.shade800 : Colors.black,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              side:
-                  joined ? const BorderSide(color: Colors.black, width: 1) : null,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+            // Bottom divider only visible when collapsed
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Opacity(
+                opacity: 1 - t,
+                child: Container(height: 1, color: Colors.grey.shade200),
+              ),
             ),
-            child: Text(
-              joined ? "Joined" : "Join",
-              style: GoogleFonts.poppins(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  // --------------------------------------------------
-  //  ABOUT SECTION
-  // --------------------------------------------------
+            // Foreground content (avatar, title, button)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: lerpDouble(8, 16, 1 - t)!, // slightly lower when collapsed
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Avatar with smooth scaling and shadow
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    width: avatarSize,
+                    height: avatarSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25 * t),
+                          blurRadius: 14 * t,
+                          offset: Offset(0, 6 * t),
+                        ),
+                      ],
+                      image: DecorationImage(
+                        image: CachedNetworkImageProvider(avatar),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Title + members
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: titleSize,
+                            color: titleColor,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Opacity(
+                          opacity: 0.9 * t + 0.5 * (1 - t), // keep slightly visible
+                          child: Text(
+                            '$membersCount members',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Color.lerp(Colors.grey.shade700, Colors.white70, t),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  // Join button: glassy on image, solid when collapsed
+                  GestureDetector(
+                    onTap: _toggleJoin,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: joined
+                            ? Color.lerp(const Color(0xFF2B2A2A), Colors.white.withOpacity(0.18), t)
+                            : Color.lerp(Colors.black, Colors.white.withOpacity(0.22), t),
+                        borderRadius: BorderRadius.circular(btnRadius),
+                        border: Border.all(
+                          color: Color.lerp(Colors.transparent, Colors.white.withOpacity(0.35), t)!,
+                        ),
+                        boxShadow: [
+                          if (t > 0.4)
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15 * t),
+                              blurRadius: 12 * t,
+                              offset: Offset(0, 6 * t),
+                            ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                      
+                          Text(
+                            joined ? 'Joined' : 'Join',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: t > 0.4 ? Colors.white : Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+
+    // Native stretch behaviors (zoom/blur/fade title if you later use FlexibleSpaceBar)
+    stretchTriggerOffset: 120,
+    onStretchTrigger: () async {
+      // Optional: refresh community data on pull-stretch
+      // await _fetchCommunityData();
+    },
+  );
+}
+  // Widget _collapsingBanner() {
+  //   return SliverAppBar(
+  //     expandedHeight: 250,
+  //     leadingWidth: 35,
+  //     pinned: true,
+  //     backgroundColor: Colors.white,
+  //     elevation: 0,
+  //     flexibleSpace: FlexibleSpaceBar(
+  //       background: CachedNetworkImage(
+  //         imageUrl:
+  //             community?.bannerUrl ?? 'https://via.placeholder.com/600x300',
+  //         fit: BoxFit.cover,
+  //         placeholder: (context, url) => Shimmer.fromColors(
+  //           baseColor: Colors.grey.shade300,
+  //           highlightColor: Colors.grey.shade100,
+  //           child: Container(color: Colors.grey.shade300),
+  //         ),
+  //         errorWidget: (context, url, error) =>
+  //             Image.asset('assets/placeholder.png', fit: BoxFit.cover),
+  //       ),
+  //     ),
+  //     title: Row(
+  //       children: [
+  //         CircleAvatar(
+  //           radius: 16,
+  //           backgroundImage: CachedNetworkImageProvider(
+  //             community?.avatarUrl ?? 'https://via.placeholder.com/150',
+  //           ),
+  //         ),
+  //         const SizedBox(width: 8),
+  //         Expanded(
+  //           child: Text(
+  //             community?.name ?? '',
+  //             style: GoogleFonts.poppins(
+  //                 fontWeight: FontWeight.w600, color: Colors.black, fontSize: 14),
+  //           ),
+  //         ),
+  //         GestureDetector(
+  //           onTap: _toggleJoin,
+  //           child: Container(
+  //             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
+  //             decoration: BoxDecoration(
+  //               color: joined ? Colors.grey.shade800 : Colors.black,
+  //               borderRadius: BorderRadius.circular(6),
+  //             ),
+  //             child: Text(
+  //               joined ? "Joined" : "Join",
+  //               style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Widget _communityHeader() {
+  //   return Padding(
+  //     padding: const EdgeInsets.all(16),
+  //     child: Row(
+  //       children: [
+  //         CircleAvatar(
+  //           radius: 26,
+  //           backgroundImage: CachedNetworkImageProvider(
+  //               community?.avatarUrl ?? 'https://via.placeholder.com/150'),
+  //         ),
+  //         const SizedBox(width: 16),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               SizedBox(
+  //                 width: 140,
+  //                 child: Text(
+  //                   community?.name ?? '',
+  //                   overflow: TextOverflow.ellipsis,
+  //                   style: GoogleFonts.poppins(
+  //                       fontSize: 16, fontWeight: FontWeight.bold),
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 6),
+  //               Text(
+  //                 "$membersCount members",
+  //                 style: GoogleFonts.poppins(
+  //                     fontSize: 12, color: Colors.grey.shade600),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         ElevatedButton(
+  //           onPressed: _toggleJoin,
+  //           style: ElevatedButton.styleFrom(
+  //             foregroundColor: Colors.white,
+  //             backgroundColor: joined ? const Color.fromARGB(255, 43, 42, 42) : Colors.black,
+  //             shape: RoundedRectangleBorder(
+  //                 borderRadius: BorderRadius.circular(8)),
+  //           ),
+  //           child: Text(joined ? "Joined" : "Join",
+  //               style: GoogleFonts.poppins(fontSize: 13)),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // -------------------- ABOUT SECTION --------------------
   Widget _aboutSection() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("About Community",
               style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w700, fontSize: 16)),
-          const SizedBox(height: 8),
-          Text(
-            "Welcome to Zimax Collaborators and development team, "
-            "the platform gives room for respectable suggestion and "
-            "information for the further development of the application.",
-            style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
-          ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-              const SizedBox(width: 6),
-              Text(
-                "Created Jan 2019",
-                style: GoogleFonts.poppins(
-                    fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
+          Text(
+            community?.description ?? '',
+            style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87),
           ),
         ],
       ),
     );
   }
 
-  // --------------------------------------------------
-  //  COMMUNITY RULES
-  // --------------------------------------------------
   Widget _rulesSection() {
+    final rules = community?.rules ?? [];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -202,9 +439,9 @@ class _CommunityState extends State<Community> {
               style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 10),
-          _ruleTile("Be respectful to others."),
-          _ruleTile("No spam posts."),
-          _ruleTile("Post Flutter-related content only."),
+          if (rules.isEmpty)
+            Text("No rules yet", style: GoogleFonts.poppins(fontSize: 13)),
+          ...rules.map((r) => _ruleTile(r.ruleText)),
         ],
       ),
     );
@@ -214,129 +451,96 @@ class _CommunityState extends State<Community> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.circle, size: 8, color: Colors.black),
+          const Icon(Icons.circle, size: 8, color: Colors.black87),
           const SizedBox(width: 10),
           Expanded(
             child: Text(rule,
-                style:
-                    GoogleFonts.poppins(fontSize: 13, color: Colors.black87)),
+                style: GoogleFonts.poppins(fontSize: 13, color: Colors.black87)),
           ),
         ],
       ),
     );
   }
 
-  // --------------------------------------------------
-  //  MODERATORS ROW
-  // --------------------------------------------------
   Widget _moderatorsBar() {
-    return Container(
-      color: Colors.grey.shade100,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      margin: const EdgeInsets.only(top: 10, bottom: 10),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
           const Icon(Icons.shield, color: Colors.black87),
           const SizedBox(width: 10),
           Text("Moderators",
-              style: GoogleFonts.poppins(
-                  fontSize: 14, fontWeight: FontWeight.w600)),
+              style:
+                  GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600)),
           const Spacer(),
           Text("View all",
-              style:
-                  GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade700))
+              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade700))
         ],
       ),
     );
   }
 
-  // --------------------------------------------------
-  //  POST LIST
-  // --------------------------------------------------
-  Widget _postList() {
-    final posts = List.generate(1, (i) => i);
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) => _postCard(index),
-        childCount: posts.length,
-      ),
-    );
-  }
-
-  // --------------------------------------------------
-  //  SINGLE POST CARD
-  // --------------------------------------------------
-  Widget _postCard(int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.grey.shade300))),
+  Widget _navigationTiles() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundImage: CachedNetworkImageProvider(
-                  "https://i.pravatar.cc/200?img=${index + 5}",
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text("user${index + 1}",
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(width: 6),
-              Text("· 5h ago",
-                  style: GoogleFonts.poppins(
-                      fontSize: 12, color: Colors.grey.shade600)),
-            ],
-          ),
+          _navTile(Icons.chat, "Group Chat", () {}),
           const SizedBox(height: 12),
-
-          Text(
-            "This is a sample post inside the Flutter community. Index = $index",
-            style: GoogleFonts.poppins(fontSize: 14),
-          ),
-          const SizedBox(height: 10),
-
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: CachedNetworkImage(
-              imageUrl:
-                  "https://images.unsplash.com/photo-1503264116251-35a269479413",
-              fit: BoxFit.cover,
-              height: 180,
-              width: double.infinity,
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _iconWithLabel(Icons.arrow_upward, "Vote"),
-              _iconWithLabel(Icons.comment, "123"),
-              _iconWithLabel(Icons.share, "Share"),
-            ],
-          ),
+          _navTile(Icons.videocam, "Live Video Sessions", () {}),
+          const SizedBox(height: 12),
+          _navTile(Icons.book_online, "Locker Room", () {}),
         ],
       ),
     );
   }
 
-  Widget _iconWithLabel(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: Colors.grey.shade700),
-        const SizedBox(width: 6),
-        Text(label,
-            style: GoogleFonts.poppins(
-                fontSize: 13, color: Colors.grey.shade700)),
-      ],
+  Widget _navTile(IconData icon, String title, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+          color: Colors.white,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.black87),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(title,
+                  style: GoogleFonts.poppins(
+                      fontSize: 14, fontWeight: FontWeight.w600)),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _toggleJoin() async {
+    final supabase = Supabase.instance.client;
+    final userId = supabase.auth.currentUser!.id;
+
+    if (!joined) {
+      await supabase.from('community_members').insert({
+        'community_id': widget.communityId,
+        'user_id': userId,
+        'joined_at': DateTime.now().toIso8601String(),
+      });
+    } else {
+      await supabase
+          .from('community_members')
+          .delete()
+          .eq('community_id', widget.communityId)
+          .eq('user_id', userId);
+    }
+
+    setState(() => joined = !joined);
   }
 }

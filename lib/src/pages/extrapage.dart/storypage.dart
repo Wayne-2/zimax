@@ -124,7 +124,7 @@ class _StoryPageState extends State<StoryPage>
                     child: CachedNetworkImage(
                       imageUrl: s.imageUrl!,
                       width: double.infinity,
-                      placeholder: (_, __) => Shimmer.fromColors(
+                      placeholder: (_, _) => Shimmer.fromColors(
                         baseColor: Colors.grey.shade700,
                         highlightColor: Colors.grey.shade500,
                         child: Container(
@@ -133,7 +133,7 @@ class _StoryPageState extends State<StoryPage>
                           color: Colors.grey,
                         ),
                       ),
-                      errorWidget: (_, __, ___) =>
+                      errorWidget: (_, _, _) =>
                           const Icon(Icons.error, color: Colors.white),
                     ),
                   ),
@@ -172,14 +172,14 @@ class _StoryPageState extends State<StoryPage>
 
           // Top progress bars + user info + back button
           Positioned(
-            top: 15,
+            top: 30,
             left: 10,
             right: 10,
             child: Column(
               children: [
                 AnimatedBuilder(
                   animation: _progressController,
-                  builder: (_, __) {
+                  builder: (_, _) {
                     return Row(
                       children: widget.stories
                           .asMap()
