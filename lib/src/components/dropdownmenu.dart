@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart' show PopupMenuItem, IconData, Row, Icons, StatelessWidget, BuildContext, Widget, Icon, PopupMenuDivider, Color, SizedBox, EdgeInsets, BorderRadius, RoundedRectangleBorder, PopupMenuButton, Colors, TextStyle, Text;
+import 'package:flutter/material.dart'
+    show BorderRadius, BuildContext, Color, Colors, EdgeInsets, Icon, IconData, Icons, MaterialPageRoute, Navigator, PopupMenuButton, PopupMenuDivider, PopupMenuItem, RoundedRectangleBorder, Row, SizedBox, StatelessWidget, Text, TextStyle, Widget;
+import 'package:zimax/src/components/publicprofile.dart';
 
 class PostOptionsMenu extends StatelessWidget {
   const PostOptionsMenu({super.key});
@@ -6,23 +8,17 @@ class PostOptionsMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<_PostMenuAction>(
-      icon: const Icon(
-        Icons.more_vert,
-        size: 18,
-        color: Color(0xFF536471),
-      ),
+      icon: const Icon(Icons.more_vert, size: 18, color: Color(0xFF536471)),
       padding: EdgeInsets.zero,
       color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onSelected: (action) {
         switch (action) {
           case _PostMenuAction.follow:
             // TODO: follow user
             break;
           case _PostMenuAction.profile:
-            // TODO: open profile
+              Navigator.push(context, MaterialPageRoute(builder: (context)=> Publicprofile()));
             break;
           case _PostMenuAction.report:
             // TODO: save post
@@ -33,11 +29,7 @@ class PostOptionsMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        _buildItem(
-          Icons.person_add_alt_1,
-          'Follow',
-          _PostMenuAction.follow,
-        ),
+        _buildItem(Icons.person_add_alt_1, 'Follow', _PostMenuAction.follow),
         _buildItem(
           Icons.account_circle_outlined,
           'View profile',
@@ -88,9 +80,4 @@ class PostOptionsMenu extends StatelessWidget {
   }
 }
 
-enum _PostMenuAction {
-  follow,
-  profile,
-  report,
-  block,
-}
+enum _PostMenuAction { follow, profile, report, block }
