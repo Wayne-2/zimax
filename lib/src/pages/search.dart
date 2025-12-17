@@ -172,6 +172,7 @@ Future<void> search(String query) async {
     final hasTyped = searchController.text.trim().isNotEmpty;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Container(
