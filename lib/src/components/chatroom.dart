@@ -34,22 +34,53 @@ class _ChatroomState extends ConsumerState<Chatroom> {
   final List<Map<String, dynamic>> messages = [];
   final ScrollController scroll = ScrollController();
   final TextEditingController controller = TextEditingController();
+  final FocusNode focusNode = FocusNode();
 
   RealtimeChannel? channel;
   bool isLoading = true;
+  bool _isAtBottom = true;
+  bool _showScrollToBottom = false;
+  int _unreadCount = 0;
+  bool _isTyping = false;
 
   @override
   void initState() {
     super.initState();
     _initializeChatroom();
+    scroll.addListener(_scrollListener);
+    controller.addListener(_textListener);
   }
 
   @override
   void dispose() {
     channel?.unsubscribe();
+    controller.removeListener(_textListener);
     controller.dispose();
+    scroll.removeListener(_scrollListener);
     scroll.dispose();
+    focusNode.dispose();
     super.dispose();
+  }
+
+  void _scrollListener() {
+    if (!scroll.hasClients) return;
+
+    final isAtBottom = scroll.position.pixels >= scroll.position.maxScrollExtent - 100;
+
+    if (_isAtBottom != isAtBottom) {
+      setState(() {
+        _isAtBottom = isAtBottom;
+        _showScrollToBottom = !isAtBottom;
+        if (isAtBottom) _unreadCount = 0;
+      });
+    }
+  }
+
+  void _textListener() {
+    final hasText = controller.text.trim().isNotEmpty;
+    if (_isTyping != hasText) {
+      setState(() => _isTyping = hasText);
+    }
   }
 
   Future<void> _initializeChatroom() async {
@@ -57,7 +88,7 @@ class _ChatroomState extends ConsumerState<Chatroom> {
       chatBox = Hive.box<ChatItemHive>('chatBox');
       await loadMessages();
       subscribeRealtime();
-      
+
       // Mark messages as read
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(chatPreviewProvider.notifier).markAsRead(widget.roomId);
@@ -84,10 +115,13 @@ class _ChatroomState extends ConsumerState<Chatroom> {
           isLoading = false;
         });
 
-        WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
+        WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom(animate: false));
       }
     } catch (e) {
       debugPrint('Error loading messages: $e');
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -99,50 +133,76 @@ class _ChatroomState extends ConsumerState<Chatroom> {
 
     channel!
         .onPostgresChanges(
-      event: PostgresChangeEvent.insert,
-      schema: "public",
-      table: "messages",
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: "chatroom_id",
-        value: widget.roomId,
-      ),
-      callback: (payload) async {
-        try {
-          final record = payload.newRecord;
-          final isMine = record['sender'] == myId;
+          event: PostgresChangeEvent.insert,
+          schema: "public",
+          table: "messages",
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: "chatroom_id",
+            value: widget.roomId,
+          ),
+          callback: (payload) async {
+            try {
+              final record = payload.newRecord;
+              final isMine = record['sender'] == myId;
 
-          // Only add if not already in local messages
-          if (!messages.any((m) => m['id'] == record['id'])) {
+              // Only add if not already in local messages
+              if (!messages.any((m) => m['id'] == record['id'])) {
+                if (mounted) {
+                  setState(() => messages.add(record));
+                }
+
+                // Update Hive chat preview for all messages
+                await _updateChatPreviewInHive(
+                  record['message'] as String,
+                  record['created_at'] as String,
+                );
+
+                // Update Riverpod provider for unread count
+                if (!isMine) {
+                  ref.read(chatPreviewProvider.notifier).onNewMessage(
+                        chatroomId: widget.roomId,
+                        message: record['message'],
+                        createdAt: DateTime.parse(record['created_at']),
+                        isMine: false,
+                      );
+
+                  // Increment unread count if not at bottom
+                  if (!_isAtBottom && mounted) {
+                    setState(() => _unreadCount++);
+                  }
+                }
+
+                // Auto-scroll based on conditions
+                if (isMine || _isAtBottom) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) scrollToBottom();
+                  });
+                }
+              }
+            } catch (e) {
+              debugPrint('Error processing realtime message: $e');
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: "public",
+          table: "messages",
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: "chatroom_id",
+            value: widget.roomId,
+          ),
+          callback: (payload) {
+            final deletedId = payload.oldRecord['id'];
             if (mounted) {
-              setState(() => messages.add(record));
+              setState(() {
+                messages.removeWhere((m) => m['id'] == deletedId);
+              });
             }
-
-            // Update Hive chat preview for all messages
-            await _updateChatPreviewInHive(
-              record['message'] as String,
-              record['created_at'] as String,
-            );
-
-            // Update Riverpod provider for unread count
-            if (!isMine) {
-              ref.read(chatPreviewProvider.notifier).onNewMessage(
-                    chatroomId: widget.roomId,
-                    message: record['message'],
-                    createdAt: DateTime.parse(record['created_at']),
-                    isMine: false,
-                  );
-            }
-          }
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) scrollToBottom();
-          });
-        } catch (e) {
-          debugPrint('Error processing realtime message: $e');
-        }
-      },
-    )
+          },
+        )
         .subscribe();
   }
 
@@ -193,6 +253,9 @@ class _ChatroomState extends ConsumerState<Chatroom> {
     if (uid == null) return;
 
     try {
+      controller.clear();
+      focusNode.unfocus();
+
       // Insert message and return the inserted record
       final inserted = await supabase.from("messages").insert({
         "chatroom_id": widget.roomId,
@@ -200,8 +263,6 @@ class _ChatroomState extends ConsumerState<Chatroom> {
         "message": text,
         "reply_to": replyTo?["id"],
       }).select().single();
-
-      controller.clear();
 
       if (mounted) {
         setState(() {
@@ -232,17 +293,35 @@ class _ChatroomState extends ConsumerState<Chatroom> {
       });
     } catch (e) {
       debugPrint('Error sending message: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send message'),
+            backgroundColor: Colors.red[700],
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
-  void scrollToBottom() {
-    if (scroll.hasClients) {
+  void scrollToBottom({bool animate = true}) {
+    if (!scroll.hasClients) return;
+
+    if (animate) {
       scroll.animateTo(
         scroll.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 220),
+        duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+    } else {
+      scroll.jumpTo(scroll.position.maxScrollExtent);
     }
+
+    setState(() {
+      _unreadCount = 0;
+      _showScrollToBottom = false;
+    });
   }
 
   void _showMessageMenu(BuildContext context, Map msg, bool isMe) {
@@ -265,8 +344,8 @@ class _ChatroomState extends ConsumerState<Chatroom> {
               left: isMe ? null : 20,
               child: Material(
                 color: Colors.white,
-                elevation: 3,
-                borderRadius: BorderRadius.circular(8),
+                elevation: 4,
+                borderRadius: BorderRadius.circular(12),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -276,21 +355,29 @@ class _ChatroomState extends ConsumerState<Chatroom> {
                         selectedMessage = null;
                       });
                       Navigator.pop(context);
+                      focusNode.requestFocus();
                     }),
                     _menuItem(Icons.copy, "Copy", () {
                       Clipboard.setData(ClipboardData(text: msg["message"]));
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text('Message copied'),
-                          duration: Duration(seconds: 1),
+                          backgroundColor: Colors.green[700],
+                          duration: const Duration(seconds: 1),
                         ),
                       );
                     }),
                     if (isMe)
-                      _menuItem(Icons.delete, "Delete", () {
-                        _deleteMessage(msg["id"]);
-                      }),
+                      _menuItem(
+                        Icons.delete,
+                        "Delete",
+                        () {
+                          Navigator.pop(context);
+                          _deleteMessage(msg["id"]);
+                        },
+                        color: Colors.red,
+                      ),
                     _menuItem(Icons.info_outline, "Info", () {
                       Navigator.pop(context);
                       _showMessageInfo(context, msg);
@@ -310,28 +397,70 @@ class _ChatroomState extends ConsumerState<Chatroom> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Message Info'),
+        title: Text(
+          'Message Info',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Sent: ${_formatFullDate(createdAt)}'),
+            _infoRow('Sent', _formatFullDateTime(createdAt)),
             const SizedBox(height: 8),
-            Text('Time: ${_formatTime(msg['created_at'])}'),
+            _infoRow('Time', _formatTime(msg['created_at'])),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(
+              'Close',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),
     );
   }
 
-  String _formatFullDate(DateTime dt) {
-    return "${dt.day}/${dt.month}/${dt.year}";
+  Widget _infoRow(String label, String value) {
+    return Row(
+      children: [
+        Text(
+          '$label: ',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            color: Colors.black54,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatFullDateTime(DateTime dt) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return "${dt.day} ${months[dt.month - 1]}, ${dt.year}";
   }
 
   Future<void> _deleteMessage(String id) async {
@@ -359,25 +488,81 @@ class _ChatroomState extends ConsumerState<Chatroom> {
           );
         }
 
-        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Message deleted'),
+            backgroundColor: Colors.green[700],
+            duration: const Duration(seconds: 1),
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Error deleting message: $e');
-      // if (mounted) {
-      //   Navigator.pop(context);
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     SnackBar(
-      //       content: Text('Failed to delete message: ${e.toString()}'),
-      //       backgroundColor: Colors.red,
-      //     ),
-      //   );
-      // }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete message'),
+            backgroundColor: Colors.red[700],
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
   String _formatTime(String isoTime) {
     final dt = DateTime.parse(isoTime).toLocal();
-    return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = dt.hour >= 12 ? 'PM' : 'AM';
+    return "$hour:$minute $period";
+  }
+
+  bool _shouldShowDateSeparator(DateTime? prev, DateTime current) {
+    if (prev == null) return true;
+    return prev.year != current.year ||
+        prev.month != current.month ||
+        prev.day != current.day;
+  }
+
+  String _formatDateSeparator(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    if (messageDate == today) {
+      return 'Today';
+    } else if (messageDate == yesterday) {
+      return 'Yesterday';
+    } else if (now.difference(date).inDays < 7) {
+      const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      return weekdays[date.weekday - 1];
+    } else {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return "${date.day} ${months[date.month - 1]}, ${date.year}";
+    }
+  }
+
+  Widget _buildDateSeparator(DateTime date) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          _formatDateSeparator(date),
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.black54,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -391,16 +576,28 @@ class _ChatroomState extends ConsumerState<Chatroom> {
     }
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 243, 243, 243),
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: _buildAppBar(),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _buildMessages(myId),
+          Column(
+            children: [
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildMessages(myId),
+              ),
+              _buildInputBar(),
+            ],
           ),
-          _buildInputBar(),
+          
+          // Scroll to bottom button
+          if (_showScrollToBottom)
+            Positioned(
+              bottom: 80,
+              right: 16,
+              child: _buildScrollToBottomButton(),
+            ),
         ],
       ),
     );
@@ -413,7 +610,7 @@ class _ChatroomState extends ConsumerState<Chatroom> {
       leadingWidth: 50,
       titleSpacing: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Color.fromARGB(255, 7, 7, 7)),
+        icon: const Icon(Icons.arrow_back, color: Colors.black87),
         onPressed: () => Navigator.pop(context),
       ),
       title: Row(
@@ -421,18 +618,20 @@ class _ChatroomState extends ConsumerState<Chatroom> {
           CircleAvatar(
             radius: 18,
             backgroundImage: NetworkImage(widget.friend["avatar"]),
+            backgroundColor: Colors.grey[300],
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   widget.friend["name"],
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: const Color.fromARGB(255, 7, 7, 7),
+                    color: Colors.black87,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -440,7 +639,7 @@ class _ChatroomState extends ConsumerState<Chatroom> {
                   "Online",
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: const Color.fromARGB(255, 100, 100, 100),
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
@@ -448,11 +647,25 @@ class _ChatroomState extends ConsumerState<Chatroom> {
           )
         ],
       ),
-      actions: const [
-        Icon(Icons.call_outlined, color: Colors.black87, size: 20),
-        SizedBox(width: 18),
-        Icon(Icons.more_vert, color: Colors.black87),
-        SizedBox(width: 8),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.call_outlined, color: Colors.black87, size: 22),
+          onPressed: () {
+            // TODO: Implement voice call
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.videocam_outlined, color: Colors.black87, size: 24),
+          onPressed: () {
+            // TODO: Navigate to video call
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.more_vert, color: Colors.black87),
+          onPressed: () {
+            // TODO: Show chat options
+          },
+        ),
       ],
     );
   }
@@ -460,93 +673,157 @@ class _ChatroomState extends ConsumerState<Chatroom> {
   Widget _buildMessages(String myId) {
     if (messages.isEmpty) {
       return Center(
-        child: Text(
-          'No messages yet. Start the conversation!',
-          style: GoogleFonts.poppins(fontSize: 14, color: Colors.black54),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(
+              'No messages yet',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Start the conversation!',
+              style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[500]),
+            ),
+          ],
         ),
       );
     }
 
     return ListView.builder(
       controller: scroll,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       itemCount: messages.length,
       itemBuilder: (_, i) {
         final msg = messages[i];
-        final isMe = msg["sender"] == myId;
-        final isSelected =
-            selectedMessage != null && selectedMessage!["id"] == msg["id"];
+        final prev = i > 0 ? messages[i - 1] : null;
+        final next = i < messages.length - 1 ? messages[i + 1] : null;
 
-        return GestureDetector(
-          onLongPress: () {
-            setState(() => selectedMessage = msg);
-            _showMessageMenu(context, msg, isMe);
-          },
-          onHorizontalDragEnd: (details) {
-            if (!isMe && details.primaryVelocity! > 150) {
-              setState(() => replyTo = msg);
-            }
-            if (isMe && details.primaryVelocity! < -150) {
-              setState(() => replyTo = msg);
-            }
-          },
-          child: Container(
-            color: isSelected
-                ? Colors.black.withOpacity(0.08)
-                : Colors.transparent,
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            margin: const EdgeInsets.symmetric(horizontal: 10),
-            child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                if (msg["reply_to"] != null)
-                  _buildReplyPreviewInsideBubble(msg["reply_to"], isMe),
-                Align(
-                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    margin: const EdgeInsets.only(top: 6, bottom: 2),
-                    constraints: const BoxConstraints(maxWidth: 270),
-                    decoration: BoxDecoration(
-                      color: isMe
-                          ? const Color.fromARGB(255, 51, 51, 51)
-                          : Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft: isMe
-                            ? const Radius.circular(12)
-                            : const Radius.circular(0),
-                        bottomRight: isMe
-                            ? const Radius.circular(0)
-                            : const Radius.circular(12),
+        final isMe = msg["sender"] == myId;
+        final isSelected = selectedMessage != null && selectedMessage!["id"] == msg["id"];
+
+        final currentDate = DateTime.parse(msg["created_at"]).toLocal();
+        final prevDate = prev != null ? DateTime.parse(prev["created_at"]).toLocal() : null;
+        final nextDate = next != null ? DateTime.parse(next["created_at"]).toLocal() : null;
+
+        final showDateSeparator = _shouldShowDateSeparator(prevDate, currentDate);
+        
+        // Show avatar if next message is from different sender or different day
+        final showAvatar = next == null ||
+            next["sender"] != msg["sender"] ||
+            _shouldShowDateSeparator(currentDate, nextDate!);
+
+        // Add spacing if messages are from same sender within same minute
+        final showCompactSpacing = prev != null &&
+            prev["sender"] == msg["sender"] &&
+            !showDateSeparator &&
+            currentDate.difference(prevDate!).inMinutes < 1;
+
+        return Column(
+          children: [
+            if (showDateSeparator) _buildDateSeparator(currentDate),
+            GestureDetector(
+              onLongPress: () {
+                setState(() => selectedMessage = msg);
+                _showMessageMenu(context, msg, isMe);
+              },
+              onHorizontalDragEnd: (details) {
+                if (!isMe && details.primaryVelocity! > 150) {
+                  setState(() => replyTo = msg);
+                  focusNode.requestFocus();
+                }
+                if (isMe && details.primaryVelocity! < -150) {
+                  setState(() => replyTo = msg);
+                  focusNode.requestFocus();
+                }
+              },
+              child: Container(
+                color: isSelected ? Colors.black.withOpacity(0.05) : Colors.transparent,
+                padding: EdgeInsets.only(
+                  top: showCompactSpacing ? 2 : 4,
+                  bottom: showAvatar ? 8 : 2,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                  children: [
+                    if (!isMe && showAvatar)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: CircleAvatar(
+                          radius: 14,
+                          backgroundImage: NetworkImage(widget.friend["avatar"]),
+                          backgroundColor: Colors.grey[300],
+                        ),
+                      )
+                    else if (!isMe)
+                      const SizedBox(width: 36),
+                    
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        children: [
+                          if (msg["reply_to"] != null)
+                            _buildReplyPreviewInsideBubble(msg["reply_to"], isMe),
+                          Container(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.7,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isMe ? const Color(0xFF2A2A2A) : Colors.white,
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(16),
+                                topRight: const Radius.circular(16),
+                                bottomLeft: isMe || !showAvatar
+                                    ? const Radius.circular(16)
+                                    : const Radius.circular(4),
+                                bottomRight: isMe && showAvatar
+                                    ? const Radius.circular(4)
+                                    : const Radius.circular(16),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              msg["message"],
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                height: 1.4,
+                                color: isMe ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ),
+                          if (showAvatar)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+                              child: Text(
+                                _formatTime(msg["created_at"]),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: Colors.black38,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    child: Text(
-                      msg["message"],
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        height: 1.3,
-                        color: isMe ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                  ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, right: 4),
-                  child: Text(
-                    _formatTime(msg["created_at"]),
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: Colors.black45,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         );
       },
     );
@@ -557,48 +834,130 @@ class _ChatroomState extends ConsumerState<Chatroom> {
         .cast<Map<String, dynamic>>()
         .firstWhereOrNull((m) => m['id'] == replyId);
 
-    if (replyMsg == null) return const SizedBox.shrink();
-
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
+    if (replyMsg == null) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        margin: const EdgeInsets.only(top: 6, bottom: 4),
-        constraints: const BoxConstraints(maxWidth: 220),
         decoration: BoxDecoration(
-          color: const Color.fromARGB(200, 84, 84, 84),
-          borderRadius: BorderRadius.circular(8),
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 3,
-              height: 25,
+              height: 20,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
+                color: Colors.grey[500],
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                replyMsg["message"],
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.white70,
-                ),
+            Text(
+              'Message deleted',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isMe ? Colors.black.withOpacity(0.2) : Colors.grey[200],
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 3,
+            height: 25,
+            decoration: BoxDecoration(
+              color: isMe ? Colors.white : Colors.black87,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              replyMsg["message"],
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: isMe ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScrollToBottomButton() {
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(28),
+      child: InkWell(
+        onTap: scrollToBottom,
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(Icons.arrow_downward, color: Colors.black87, size: 24),
+              if (_unreadCount > 0)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      _unreadCount > 99 ? '99+' : _unreadCount.toString(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 9,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _menuItem(IconData icon, String text, VoidCallback onTap) {
+  Widget _menuItem(
+    IconData icon,
+    String text,
+    VoidCallback onTap, {
+    Color? color,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Padding(
