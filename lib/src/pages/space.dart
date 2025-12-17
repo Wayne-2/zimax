@@ -185,8 +185,6 @@ class _SpaceState extends ConsumerState<Space> {
             final res = await supabase.from('community_members').insert({
               'community_id': community.id,
               'user_id': supabase.auth.currentUser!.id,
-              'user_name':username,
-              'community_name':community.name,
               'joined_at': DateTime.now().toIso8601String(),
             });
 
@@ -277,6 +275,8 @@ class _SpaceState extends ConsumerState<Space> {
                                 .insert({
                                   'community_id': community.id,
                                   'user_id': supabase.auth.currentUser!.id,
+                                  'user_name':username,
+                                  'community_name':community.name,
                                   'joined_at': DateTime.now().toIso8601String(),
                                 });
 

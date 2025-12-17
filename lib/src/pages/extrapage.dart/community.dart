@@ -22,6 +22,7 @@ class Community extends StatefulWidget {
 }
 
 class _CommunityState extends State<Community> {
+  bool joining = false;
   bool joined = false;
   bool loading = true;
   CommunityModel? community;
@@ -55,16 +56,20 @@ class _CommunityState extends State<Community> {
 
       final membersRes = await supabase
           .from('community_members')
-          .select('id')
+          .select('user_name')
           .eq('community_id', widget.communityId);
+
 
 
       setState(() {
         community = CommunityModel.fromMap(communityRes);
         joined = joinedRes != null;
         membersCount = (membersRes as List).length;
+        memberNames =
+            membersRes.map((e) => e['user_name'] as String).toList();
         loading = false;
       });
+
     } catch (e) {
       setState(() => loading = false);
       // ScaffoldMessenger.of(context)
@@ -295,18 +300,23 @@ class _CommunityState extends State<Community> {
                               ),
                           ],
                         ),
-                        child: Row(
-                          children: [
-                            Text(
-                              joined ? 'Joined' : 'Join',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: t > 0.4 ? Colors.white : Colors.white,
-                              ),
+                        child: joining
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
                             ),
-                          ],
-                        ),
+                          )
+                        : Text(
+                            joined ? 'Joined' : 'Join',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                       ),
                     ),
                   ],
@@ -551,25 +561,41 @@ Widget _memberTile(String name) {
   }
 
   Future<void> _toggleJoin() async {
-    final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser!.id;
+  final supabase = Supabase.instance.client;
+  final userId = supabase.auth.currentUser!.id;
+  if (joining) return;
+  joining = true;
 
-    if (!joined) {
-      await supabase.from('community_members').insert({
-        'community_id': widget.communityId,
-        'user_id': userId,
-        'joined_at': DateTime.now().toIso8601String(),
-      });
-    } else {
-      await supabase
-          .from('community_members')
-          .delete()
-          .eq('community_id', widget.communityId)
-          .eq('user_id', userId);
-    }
+  try{
+    if (joined) {
+    await supabase
+        .from('community_members')
+        .delete()
+        .eq('community_id', widget.communityId)
+        .eq('user_id', userId);
 
-    setState(() => joined = !joined);
+    setState(() {
+      joined = false;
+      membersCount--;
+      memberNames.removeWhere((name) => name == 'You');
+    });
+  } else {
+    await supabase.from('community_members').insert({
+      'community_id': widget.communityId,
+      'user_id': userId,
+      'joined_at': DateTime.now().toIso8601String(),
+    });
   }
+    setState(() {
+      joined = true;
+      membersCount++;
+      memberNames.insert(0, 'You');
+    });
+  }finally{
+     joining = false;
+  }
+}
+
 }
 
 class CommunityShimmer extends StatelessWidget {
