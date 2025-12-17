@@ -26,6 +26,8 @@ class _CommunityState extends State<Community> {
   bool loading = true;
   CommunityModel? community;
   int membersCount = 0;
+  bool showAllMembers = false;
+  List<String> memberNames = [];
 
   @override
   void initState() {
@@ -56,6 +58,7 @@ class _CommunityState extends State<Community> {
           .select('id')
           .eq('community_id', widget.communityId);
 
+
       setState(() {
         community = CommunityModel.fromMap(communityRes);
         joined = joinedRes != null;
@@ -74,7 +77,7 @@ class _CommunityState extends State<Community> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       body: loading
-          ? _shimmerLoader()
+          ? CommunityShimmer()
           : CustomScrollView(
               slivers: [
                 _collapsingBanner(),
@@ -85,26 +88,6 @@ class _CommunityState extends State<Community> {
                 SliverToBoxAdapter(child: _navigationTiles()),
               ],
             ),
-    );
-  }
-
-  Widget _shimmerLoader() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
-      child: ListView(
-        children: List.generate(
-          5,
-          (index) => Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            height: 100,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -343,7 +326,6 @@ class _CommunityState extends State<Community> {
     );
   }
 
-  // -------------------- ABOUT SECTION --------------------
   Widget _aboutSection() {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -394,7 +376,8 @@ class _CommunityState extends State<Community> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Icon(Icons.circle, size: 8, color: Colors.black87),
           const SizedBox(width: 10),
@@ -409,32 +392,108 @@ class _CommunityState extends State<Community> {
     );
   }
 
-  Widget _moderatorsBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          SvgIcon('assets/commicon/admin.svg', color: Colors.black, size: 22),
-          const SizedBox(width: 10),
-          Text(
-            "Moderators",
-            style: GoogleFonts.poppins(
-              fontSize: 15,
+Widget _moderatorsBar() {
+  final visibleMembers =
+      showAllMembers ? memberNames : memberNames.take(3).toList();
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        /// Header
+        Row(
+          children: [
+            Text(
+              "Community Members",
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  showAllMembers = !showAllMembers;
+                });
+              },
+              child: Text(
+                showAllMembers ? "View less" : "View all",
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        /// Expandable list
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          child: Column(
+            children: [
+              /// Members
+              ...visibleMembers.map((name) => _memberTile(name)),
+
+              /// 👇 Fade hint (ONLY when collapsed & more members exist)
+              if (!showAllMembers && memberNames.length > 3)
+                Container(
+                  height: 24,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withOpacity(0),
+                        Colors.white,
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _memberTile(String name) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 14,
+          backgroundColor: Colors.black,
+          child: Text(
+            name[0].toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const Spacer(),
-          Text(
-            "View all",
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: Colors.grey.shade700,
-            ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          name,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
 
   Widget _navigationTiles() {
     return Padding(
@@ -455,7 +514,7 @@ class _CommunityState extends State<Community> {
             );
           }),
           const SizedBox(height: 12),
-          _navTile('assets/commicon/locker.svg', "Assets", () {}),
+          _navTile('assets/commicon/locker.svg', "Media and assets", () {}),
         ],
       ),
     );
@@ -465,7 +524,7 @@ class _CommunityState extends State<Community> {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade300),
@@ -479,8 +538,8 @@ class _CommunityState extends State<Community> {
               child: Text(
                 title,
                 style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
@@ -510,5 +569,178 @@ class _CommunityState extends State<Community> {
     }
 
     setState(() => joined = !joined);
+  }
+}
+
+class CommunityShimmer extends StatelessWidget {
+  const CommunityShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: CustomScrollView(
+        slivers: [
+          _bannerShimmer(),
+          SliverToBoxAdapter(child: _sectionShimmer()),
+          SliverToBoxAdapter(child: _rulesShimmer()),
+          SliverToBoxAdapter(child: _moderatorsShimmer()),
+          SliverToBoxAdapter(child: _navTilesShimmer()),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- Banner ----------------
+  static Widget _bannerShimmer() {
+    return SliverAppBar(
+      expandedHeight: 260,
+      pinned: true,
+      elevation: 0,
+      backgroundColor: Colors.white,
+      flexibleSpace: Container(
+        color: Colors.grey.shade300,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 16,
+              bottom: 16,
+              child: Row(
+                children: [
+                  _circle(68),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _line(width: 140, height: 18),
+                      const SizedBox(height: 8),
+                      _line(width: 90, height: 12),
+                    ],
+                  ),
+                  const SizedBox(width: 20),
+                  _pill(width: 64, height: 32),
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------- About ----------------
+  static Widget _sectionShimmer() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _line(width: 140, height: 16),
+          const SizedBox(height: 12),
+          _line(width: double.infinity, height: 12),
+          const SizedBox(height: 8),
+          _line(width: double.infinity, height: 12),
+          const SizedBox(height: 8),
+          _line(width: 200, height: 12),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- Rules ----------------
+  static Widget _rulesShimmer() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(
+          4,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                _circle(8),
+                const SizedBox(width: 10),
+                Expanded(child: _line(height: 12)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------- Moderators ----------------
+  static Widget _moderatorsShimmer() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          _line(width: 160, height: 14),
+          const Spacer(),
+          _line(width: 60, height: 12),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- Navigation ----------------
+  static Widget _navTilesShimmer() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        children: List.generate(
+          3,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              height: 64,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------- Helpers ----------------
+  static Widget _line({
+    double width = double.infinity,
+    double height = 10,
+  }) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+      ),
+    );
+  }
+
+  static Widget _circle(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+
+  static Widget _pill({required double width, required double height}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(height / 2),
+      ),
+    );
   }
 }

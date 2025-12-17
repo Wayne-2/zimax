@@ -269,7 +269,7 @@ void _generateMeetingCode() {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.black12,
+                      color: const Color.fromARGB(26, 0, 0, 0),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.black38),
                     ),
@@ -290,7 +290,7 @@ void _generateMeetingCode() {
                               SelectableText(
                                 meetingCode,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 24,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w600,
                                   color: const Color.fromARGB(255, 0, 0, 0),
                                   letterSpacing: 2,

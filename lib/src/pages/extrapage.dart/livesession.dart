@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flick_video_player/flick_video_player.dart';
 import 'package:video_player/video_player.dart';
+import 'package:zimax/src/components/svgicon.dart';
 
 class LiveStreamScreen extends StatefulWidget {
   final String url = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
@@ -180,6 +181,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
             icon: const Icon(Icons.arrow_back, color: Colors.black87),
             onPressed: () => Navigator.pop(context),
           ),
+          SizedBox(width: 10,),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,24 +189,22 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
               children: [
                 Text(
                   'CSC 301 - Data Structures',
-                  style: GoogleFonts.roboto(
+                  style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: Colors.black87,
-                  ),
-                ),
-                Text(
-                  'Live Class',
-                  style: GoogleFonts.roboto(
-                    fontSize: 12,
-                    color: Colors.grey[600],
                   ),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.black87, size: 22),
+            icon: const Icon(Icons.video_camera_front, color: Colors.black87, size: 22),
+            onPressed: () {},
+          ),
+          SizedBox(width: 10,),
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.black87, size: 22),
             onPressed: () {},
           ),
         ],
@@ -243,7 +243,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
               const SizedBox(width: 6),
               Text(
                 'LIVE',
-                style: GoogleFonts.roboto(
+                style: GoogleFonts.poppins(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
                   fontSize: 11,
@@ -271,7 +271,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
           const SizedBox(width: 4),
           Text(
             participantCount.toString(),
-            style: GoogleFonts.roboto(
+            style: GoogleFonts.poppins(
               color: Colors.white,
               fontWeight: FontWeight.w500,
               fontSize: 12,
@@ -295,10 +295,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: const Color(0xFF1976D2),
+            backgroundColor: const Color.fromARGB(255, 0, 0, 0),
             child: Text(
               'DA',
-              style: GoogleFonts.roboto(
+              style: GoogleFonts.poppins(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -312,7 +312,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
               children: [
                 Text(
                   'Dr. Adebayo',
-                  style: GoogleFonts.roboto(
+                  style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: Colors.black87,
@@ -320,7 +320,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                 ),
                 Text(
                   'Lecturer • Computer Science Dept.',
-                  style: GoogleFonts.roboto(
+                  style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: Colors.grey[600],
                   ),
@@ -342,7 +342,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                 const SizedBox(width: 6),
                 Text(
                   'Active',
-                  style: GoogleFonts.roboto(
+                  style: GoogleFonts.poppins(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: Colors.green[700],
@@ -374,26 +374,22 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: !showParticipants ? const Color(0xFF1976D2) : Colors.transparent,
-                      width: 3,
+                      color: !showParticipants ? const Color.fromARGB(255, 0, 0, 0) : Colors.transparent,
+                      width: 2,
                     ),
                   ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.chat_bubble_outline,
-                      size: 18,
-                      color: !showParticipants ? const Color(0xFF1976D2) : Colors.grey[600],
-                    ),
+                    SvgIcon('assets/icons/livechat.svg', color: !showParticipants ? const Color.fromARGB(255, 0, 0, 0) : Colors.grey[600],size: 18),
                     const SizedBox(width: 8),
                     Text(
                       'Chat',
-                      style: GoogleFonts.roboto(
+                      style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: !showParticipants ? FontWeight.w600 : FontWeight.w400,
-                        color: !showParticipants ? const Color(0xFF1976D2) : Colors.grey[600],
+                        color: !showParticipants ? const Color.fromARGB(255, 0, 0, 0) : Colors.grey[600],
                       ),
                     ),
                     if (!showParticipants && messages.isNotEmpty) ...[
@@ -401,12 +397,12 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1976D2),
+                          color: const Color.fromARGB(255, 0, 0, 0),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           messages.length.toString(),
-                          style: GoogleFonts.roboto(
+                          style: GoogleFonts.poppins(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -427,7 +423,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: showParticipants ? const Color(0xFF1976D2) : Colors.transparent,
+                      color: showParticipants ? const Color.fromARGB(255, 0, 0, 0) : Colors.transparent,
                       width: 3,
                     ),
                   ),
@@ -438,27 +434,27 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                     Icon(
                       Icons.people_outline,
                       size: 18,
-                      color: showParticipants ? const Color(0xFF1976D2) : Colors.grey[600],
+                      color: showParticipants ? const Color.fromARGB(255, 0, 0, 0) : Colors.grey[600],
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Participants',
-                      style: GoogleFonts.roboto(
+                      style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: showParticipants ? FontWeight.w600 : FontWeight.w400,
-                        color: showParticipants ? const Color(0xFF1976D2) : Colors.grey[600],
+                        color: showParticipants ? const Color.fromARGB(255, 0, 0, 0) : Colors.grey[600],
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: showParticipants ? const Color(0xFF1976D2) : Colors.grey[300],
+                        color: showParticipants ? const Color.fromARGB(255, 0, 0, 0) : Colors.grey[300],
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         participantCount.toString(),
-                        style: GoogleFonts.roboto(
+                        style: GoogleFonts.poppins(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: showParticipants ? Colors.white : Colors.grey[700],
@@ -492,7 +488,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                         const SizedBox(height: 12),
                         Text(
                           'No messages yet',
-                          style: GoogleFonts.roboto(
+                          style: GoogleFonts.poppins(
                             fontSize: 14,
                             color: Colors.grey[600],
                           ),
@@ -500,7 +496,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                         const SizedBox(height: 4),
                         Text(
                           'Be the first to say something!',
-                          style: GoogleFonts.roboto(
+                          style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: Colors.grey[500],
                           ),
@@ -544,12 +540,12 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                     ),
                     child: TextField(
                       controller: controller,
-                      style: GoogleFonts.roboto(fontSize: 14),
+                      style: GoogleFonts.poppins(fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Send a message to everyone...',
-                        hintStyle: GoogleFonts.roboto(
+                        hintText: 'Type a comment...',
+                        hintStyle: GoogleFonts.poppins(
                           color: Colors.grey[500],
-                          fontSize: 14,
+                          fontSize: 12,
                         ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -561,11 +557,11 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                 const SizedBox(width: 8),
                 Container(
                   decoration: const BoxDecoration(
-                    color: Color(0xFF1976D2),
+                    color: Color.fromARGB(255, 0, 0, 0),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                    icon: const Icon(Icons.arrow_upward, color: Colors.white, size: 20),
                     onPressed: _sendMessage,
                   ),
                 ),
@@ -587,10 +583,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: isYou ? const Color(0xFF1976D2) : Colors.grey[300],
+            backgroundColor: isYou ? const Color.fromARGB(255, 0, 0, 0) : Colors.grey[300],
             child: Text(
               avatar,
-              style: GoogleFonts.roboto(
+              style: GoogleFonts.poppins(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: isYou ? Colors.white : Colors.black87,
@@ -606,7 +602,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                   children: [
                     Text(
                       name,
-                      style: GoogleFonts.roboto(
+                      style: GoogleFonts.poppins(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Colors.black87,
@@ -615,7 +611,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                     const SizedBox(width: 8),
                     Text(
                       time,
-                      style: GoogleFonts.roboto(
+                      style: GoogleFonts.poppins(
                         fontSize: 11,
                         color: Colors.grey[600],
                       ),
@@ -625,8 +621,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                 const SizedBox(height: 4),
                 Text(
                   message,
-                  style: GoogleFonts.roboto(
-                    fontSize: 14,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
                     color: Colors.black87,
                     height: 1.4,
                   ),
@@ -675,10 +671,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: isHost ? const Color(0xFF1976D2) : Colors.grey[300],
+            backgroundColor: isHost ? const Color.fromARGB(255, 0, 0, 0) : Colors.grey[300],
             child: Text(
               avatar,
-              style: GoogleFonts.roboto(
+              style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: isHost ? Colors.white : Colors.black87,
@@ -692,7 +688,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
               children: [
                 Text(
                   name,
-                  style: GoogleFonts.roboto(
+                  style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: Colors.black87,
@@ -701,9 +697,9 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
                 if (isHost)
                   Text(
                     'Host',
-                    style: GoogleFonts.roboto(
+                    style: GoogleFonts.poppins(
                       fontSize: 11,
-                      color: const Color(0xFF1976D2),
+                      color: const Color.fromARGB(255, 8, 160, 15),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -716,13 +712,13 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> with TickerProvider
               Icon(
                 isMuted ? Icons.mic_off : Icons.mic,
                 size: 18,
-                color: isMuted ? Colors.grey[400] : Colors.green[600],
+                color: isMuted ? Colors.grey[400] : const Color.fromARGB(255, 0, 0, 0),
               ),
               const SizedBox(width: 12),
               Icon(
                 isVideoOn ? Icons.videocam : Icons.videocam_off,
                 size: 20,
-                color: isVideoOn ? Colors.green[600] : Colors.grey[400],
+                color: isVideoOn ? const Color.fromARGB(255, 0, 0, 0) : Colors.grey[400],
               ),
             ],
           ),
