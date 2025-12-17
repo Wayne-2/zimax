@@ -64,14 +64,6 @@ class _ChatroomState extends ConsumerState<Chatroom> {
       });
     } catch (e) {
       debugPrint('Error initializing chatroom: $e');
-      // if (mounted) {
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     SnackBar(
-      //       content: Text('Failed to load chat: ${e.toString()}'),
-      //       backgroundColor: Colors.red,
-      //     ),
-      //   );
-      // }
     }
   }
 
@@ -96,15 +88,6 @@ class _ChatroomState extends ConsumerState<Chatroom> {
       }
     } catch (e) {
       debugPrint('Error loading messages: $e');
-      // if (mounted) {
-      //   setState(() => isLoading = false);
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     SnackBar(
-      //       content: Text('Failed to load messages: ${e.toString()}'),
-      //       backgroundColor: Colors.red,
-      //     ),
-      //   );
-      // }
     }
   }
 
@@ -249,14 +232,6 @@ class _ChatroomState extends ConsumerState<Chatroom> {
       });
     } catch (e) {
       debugPrint('Error sending message: $e');
-      // if (mounted) {
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     SnackBar(
-      //       content: Text('Failed to send message: ${e.toString()}'),
-      //       backgroundColor: Colors.red,
-      //     ),
-      //   );
-      // }
     }
   }
 

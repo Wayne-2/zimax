@@ -131,7 +131,7 @@ void _generateMeetingCode() {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Class Details',
+                    'Session Details',
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -145,7 +145,7 @@ void _generateMeetingCode() {
                     controller: classNameController,
                     style: GoogleFonts.poppins(fontSize: 14),
                     decoration: InputDecoration(
-                      labelText: 'Class name',
+                      labelText: 'Session name',
                       hintText: 'e.g., CSC 301 - Data Structures',
                       labelStyle: GoogleFonts.poppins(
                         fontSize: 12,

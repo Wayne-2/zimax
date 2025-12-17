@@ -513,7 +513,7 @@ Widget _memberTile(String name) {
           _navTile('assets/commicon/groupchat.svg', "Group Chat", () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => Groupchat()),
+              MaterialPageRoute(builder: (context) => Groupchat(communityId: community!.id, communityname: community!.name, communitypfp: community!.avatarUrl,)),
             );
           }),
           const SizedBox(height: 12),
