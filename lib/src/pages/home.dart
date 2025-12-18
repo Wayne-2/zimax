@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
-// import 'package:uuid/uuid.dart';
 import 'package:zimax/src/components/appdrawer.dart';
 import 'package:zimax/src/components/post_card.dart';
 import 'package:zimax/src/components/videotiles.dart';
@@ -39,6 +38,11 @@ class _HomeState extends ConsumerState<Home> {
       // ));
     }
   }
+
+  Future<void> _onRefresh() async {
+    ref.invalidate(zimaxHomePostsProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final postsAsync = ref.watch(zimaxHomePostsProvider);
@@ -66,74 +70,94 @@ class _HomeState extends ConsumerState<Home> {
           const SizedBox(width: 15),
         ],
       ),
-
       backgroundColor: Colors.white,
-
-      body: postsAsync.when(
-        loading:  () => ListView.builder(
-                  itemCount: 4,
-                  itemBuilder: (_, _) => postShimmer(),
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: Colors.black,
+        child: postsAsync.when(
+          loading: () => ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: 4,
+            itemBuilder: (_, _) => postShimmer(),
+          ),
+          error: (err, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.7,
+                child: Center(
+                  child: Text("Error: $err", style: GoogleFonts.poppins(fontSize: 14)),
                 ),
-        error: (err, _) => Center(
-          child: Text("Error: $err", style: GoogleFonts.poppins(fontSize: 14)),
-        ),
-
-        data: (posts) {
-          if (posts.isEmpty) {
-            return Center(
-              child: Text(
-                "No posts yet",
-                style: GoogleFonts.poppins(fontSize: 14),
               ),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: posts.length,
-            itemBuilder: (context, index) {
-              final post = posts[index];
-              final postId = post.id;
-
-              final postCard = PostCard(
-                postId:postId ,
-                username: post.username,
-                pfp: post.pfp,
-                department: post.department,
-                status: post.status,
-                imageUrl: post.mediaUrl,
-                postcontent: post.content ?? '',
-                like: post.likes.toString(),
-                comment: post.comments.toString(),
-                poll: post.polls.toString(),
-                repost: post.reposts.toString(),
-                createdAt: post.createdAt,
-              );
-
-              // Insert VideoRow after every 6 posts
-              if ((index + 1) % 6 == 0) {
-                return Column(
-                  children: [
-                    postCard,
-                    const SizedBox(height: 10),
-                    VideoTileRow(
-                      videoThumbnails: [
-                        "https://picsum.photos/400/600",
-                        "https://picsum.photos/401/600",
-                        "https://picsum.photos/402/600",
-                      ],
+            ],
+          ),
+          data: (posts) {
+            if (posts.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    child: Center(
+                      child: Text(
+                        "No posts yet",
+                        style: GoogleFonts.poppins(fontSize: 14),
+                      ),
                     ),
-                  ],
-                );
-              }
+                  ),
+                ],
+              );
+            }
 
-              return postCard;
-            },
-          );
-        },
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: posts.length,
+              itemBuilder: (context, index) {
+                final post = posts[index];
+                final postId = post.id;
+
+                final postCard = PostCard(
+                  postId: postId,
+                  username: post.username,
+                  pfp: post.pfp,
+                  department: post.department,
+                  status: post.status,
+                  imageUrl: post.mediaUrl,
+                  postcontent: post.content ?? '',
+                  like: post.likes.toString(),
+                  comment: post.comments.toString(),
+                  poll: post.polls.toString(),
+                  repost: post.reposts.toString(),
+                  createdAt: post.createdAt,
+                );
+
+                // Insert VideoRow after every 6 posts
+                if ((index + 1) % 6 == 0) {
+                  return Column(
+                    children: [
+                      postCard,
+                      const SizedBox(height: 10),
+                      VideoTileRow(
+                        videoThumbnails: [
+                          "https://picsum.photos/400/600",
+                          "https://picsum.photos/401/600",
+                          "https://picsum.photos/402/600",
+                        ],
+                      ),
+                    ],
+                  );
+                }
+
+                return postCard;
+              },
+            );
+          },
+        ),
       ),
     );
   }
 }
+
 Widget postShimmer() {
   return Shimmer.fromColors(
     baseColor: Colors.grey.shade300,
@@ -172,16 +196,13 @@ Widget postShimmer() {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
           Container(
             height: 300,
             width: double.infinity,
             color: Colors.white,
           ),
-
           const SizedBox(height: 16),
-
           Container(
             width: double.infinity,
             height: 12,
@@ -199,7 +220,6 @@ Widget postShimmer() {
             height: 12,
             color: Colors.white,
           ),
-
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -225,4 +245,3 @@ Widget _iconShimmer() {
     color: Colors.white,
   );
 }
-

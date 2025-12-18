@@ -10,7 +10,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-// import 'package:uuid/uuid.dart';
 import 'package:zimax/src/components/svgicon.dart';
 import 'package:zimax/src/models/mediapost.dart';
 import 'package:zimax/src/services/riverpod.dart';

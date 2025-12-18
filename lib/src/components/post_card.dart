@@ -60,7 +60,10 @@ class _PostCardState extends State<PostCard> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
-        return CommentSheet(postId: postId, userId: user.id);
+        return CommentSheet(
+          postId: postId,
+          userId: user.id,
+        );
       },
     );
   }
@@ -78,120 +81,153 @@ class _PostCardState extends State<PostCard> {
   Widget build(BuildContext context) {
     final readableDate = timeAgo(widget.createdAt);
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white12)),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(35),
-                    child: CachedNetworkImage(
-                      imageUrl: widget.pfp,
-                      width: 35,
-                      height: 35,
-                      fit: BoxFit.cover,
-
-                      placeholder: (context, url) => Shimmer.fromColors(
-                        baseColor: Colors.grey.shade300,
-                        highlightColor: Colors.grey.shade100,
-                        child: Container(
-                          width: 35,
-                          height: 35,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(35),
+              Expanded(
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: CachedNetworkImage(
+                        imageUrl: widget.pfp,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Shimmer.fromColors(
+                          baseColor: Colors.grey.shade300,
+                          highlightColor: Colors.grey.shade100,
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                           ),
                         ),
-                      ),
-
-                      errorWidget: (context, url, error) => Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
-                          color: Colors.grey.shade200,
-                        ),
-                        child: const Icon(
-                          Icons.person,
-                          color: Colors.grey,
-                          size: 16,
+                        errorWidget: (context, url, error) => Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            color: Colors.grey.shade200,
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        mainAxisAlignment: MainAxisAlignment.start,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "${widget.username} ",
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 14,
-                              color: Colors.black,
-                            ),
+                          // Username row with badge
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  widget.username,
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: Colors.black,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              _buildStatusIcon(widget.status),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          _buildStatusIcon(widget.status),
+                          const SizedBox(height: 2),
+                          // Department and time row
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  widget.department,
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w400,
+                                    fontSize: 13,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                child: Icon(
+                                  Icons.circle,
+                                  size: 3,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              Text(
+                                readableDate,
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w400,
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            widget.department,
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w400,
-                              fontSize: 12,
-                              color: Colors.black,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Icon(Icons.circle, size: 3),
-                          SizedBox(width: 4),
-                          Text(
-                            '$readableDate ',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.w400,
-                              fontSize: 12,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               const PostOptionsMenu(),
             ],
           ),
 
-          const SizedBox(height: 4),
+          // const SizedBox(height: 12),
 
+          // Post Content
+          Padding(
+            padding: const EdgeInsets.only(top:8.0),
+            child: Text(
+              widget.postcontent,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                height: 1.5,
+                fontWeight: FontWeight.w400,
+                color: Colors.black87,
+                letterSpacing: -0.1,
+              ),
+              maxLines: 10,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          // Post Image
           if (widget.imageUrl != null) ...[
-            const SizedBox(height: 10),
-
+            const SizedBox(height: 12),
             ClipRRect(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(12),
               child: CachedNetworkImage(
                 height: 300,
                 width: double.infinity,
                 imageUrl: widget.imageUrl!,
                 fit: BoxFit.cover,
-
                 placeholder: (context, url) => Shimmer.fromColors(
                   baseColor: Colors.grey.shade300,
                   highlightColor: Colors.grey.shade100,
@@ -201,32 +237,22 @@ class _PostCardState extends State<PostCard> {
                     color: Colors.white,
                   ),
                 ),
-
                 errorWidget: (context, url, error) => Container(
                   height: 300,
                   width: double.infinity,
-                  color: Colors.grey.shade200,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: const Icon(Icons.error, color: Colors.red),
                 ),
               ),
             ),
           ],
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
 
-          Text(
-            widget.postcontent,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              height: 1.3,
-              fontWeight: FontWeight.w400,
-            ),
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          const SizedBox(height: 10),
-
+          // Actions Row
           Row(
             children: [
               _ActivIcon(
@@ -234,22 +260,22 @@ class _PostCardState extends State<PostCard> {
                 count: widget.comment,
                 onTap: () => _openCommentsSheet(context, widget.postId),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 24),
               RepostButton(count: widget.repost),
-              const SizedBox(width: 20),
+              const SizedBox(width: 24),
               LikeButton(
                 count: widget.like,
-                initialLiked: false, // or pass your backend like state
+                initialLiked: false,
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 24),
               _ActivIcon(
                 icon: 'assets/activicon/activity.svg',
                 count: widget.poll,
                 onTap: () {},
               ),
               const Spacer(),
-              BookmarkButton(),
-              const SizedBox(width: 14),
+              const BookmarkButton(),
+              const SizedBox(width: 16),
               _ActivIcon(
                 icon: 'assets/activicon/share.svg',
                 count: '',
@@ -268,17 +294,29 @@ Icon _buildStatusIcon(String status) {
     case "Student":
       return const Icon(
         Icons.school,
-        size: 18,
-        color: Color.fromARGB(255, 0, 4, 255),
+        size: 16,
+        color: Color(0xFF2563EB),
       );
     case "Academic Staff":
-      return const Icon(Icons.star, size: 18, color: Colors.amber);
+      return const Icon(
+        Icons.star,
+        size: 16,
+        color: Color(0xFFF59E0B),
+      );
     case "Non-Academic Staff":
-      return const Icon(Icons.work, size: 18, color: Colors.red);
+      return const Icon(
+        Icons.work,
+        size: 16,
+        color: Color(0xFFEF4444),
+      );
     case "Admin":
-      return const Icon(Icons.verified, size: 18, color: Colors.green);
+      return const Icon(
+        Icons.verified,
+        size: 16,
+        color: Color(0xFF10B981),
+      );
     default:
-      return const Icon(Icons.person, size: 18, color: Colors.grey);
+      return const Icon(Icons.person, size: 16, color: Colors.grey);
   }
 }
 
@@ -287,15 +325,21 @@ String timeAgo(DateTime createdAt) {
   final diff = now.difference(createdAt);
 
   if (diff.inSeconds < 60) {
-    return "just now";
+    return "now";
   } else if (diff.inMinutes < 60) {
-    return "${diff.inMinutes} min ago";
+    return "${diff.inMinutes}m";
   } else if (diff.inHours < 24) {
-    return "${diff.inHours} hr ago";
+    return "${diff.inHours}h";
   } else if (diff.inDays == 1) {
-    return "Yesterday";
+    return "1d";
+  } else if (diff.inDays < 7) {
+    return "${diff.inDays}d";
+  } else if (diff.inDays < 30) {
+    final weeks = (diff.inDays / 7).floor();
+    return "${weeks}w";
   } else {
-    return "${diff.inDays} days ago";
+    final months = (diff.inDays / 30).floor();
+    return "${months}mo";
   }
 }
 
@@ -316,14 +360,20 @@ class _ActivIcon extends StatelessWidget {
       onTap: onTap,
       child: Row(
         children: [
-          SvgIcon(icon, color: const Color.fromARGB(255, 24, 24, 24), size: 18),
+          SvgIcon(
+            icon,
+            color: Colors.grey.shade800,
+            size: 20,
+          ),
           if (count.isNotEmpty) ...[
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               count,
-              style: const TextStyle(
-                color: Color.fromARGB(255, 46, 46, 46),
-                fontSize: 13,
+              style: GoogleFonts.poppins(
+                color: Colors.grey.shade700,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                letterSpacing: -0.2,
               ),
             ),
           ],
@@ -360,8 +410,8 @@ class _LikeButtonState extends State<LikeButton>
     );
 
     _scaleAnimation = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 50),
     ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.addStatusListener((status) {
@@ -393,17 +443,20 @@ class _LikeButtonState extends State<LikeButton>
               isLiked
                   ? 'assets/activicon/like-filled.svg'
                   : 'assets/activicon/like.svg',
-              color: isLiked
-                  ? Colors.red
-                  : const Color.fromARGB(255, 17, 17, 17),
-              size: 18,
+              color: isLiked ? const Color(0xFFEF4444) : Colors.grey.shade800,
+              size: 20,
             ),
           ),
           if (widget.count.isNotEmpty) ...[
             const SizedBox(width: 6),
             Text(
               widget.count,
-              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: isLiked ? const Color(0xFFEF4444) : Colors.grey.shade700,
+                letterSpacing: -0.2,
+              ),
             ),
           ],
         ],
@@ -435,8 +488,8 @@ class _BookmarkButtonState extends State<BookmarkButton>
     );
 
     _scaleAnimation = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 50),
     ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.addStatusListener((status) {
@@ -468,10 +521,8 @@ class _BookmarkButtonState extends State<BookmarkButton>
           isBookmarked
               ? 'assets/activicon/bookmark-filled.svg'
               : 'assets/activicon/bookmark.svg',
-          color: isBookmarked
-              ? const Color.fromARGB(255, 68, 68, 68)
-              : const Color.fromARGB(255, 17, 17, 17),
-          size: 18,
+          color: isBookmarked ? Colors.black : Colors.grey.shade800,
+          size: 20,
         ),
       ),
     );

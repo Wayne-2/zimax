@@ -30,7 +30,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
     return Drawer(
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.horizontal(right: Radius.circular(10)),
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(3)),
       ),
       child: SafeArea(
         child: Column(
