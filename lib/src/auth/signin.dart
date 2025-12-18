@@ -161,7 +161,6 @@ void _showAlertDialog({
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-
               ImageDisplay(),
               const SizedBox(height: 50),
 
