@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -46,40 +48,35 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   bool isLiked = false;
-void _openCommentsSheet(BuildContext context, String postId) {
-  final supabase = Supabase.instance.client;
-  final user = supabase.auth.currentUser;
+  void _openCommentsSheet(BuildContext context, String postId) {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
 
-  if (user == null) return;
+    if (user == null) return;
+    print(widget.comment);
 
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return CommentSheet(postId: postId, userId: user.id);
+      },
+    );
+  }
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) {
-      return CommentSheet(
-        postId: postId,
-        userId: user.id,
-        pfp: widget.pfp,
-        username: widget.username,
-      );
-    },
-  );
-}
-
-void _openShareSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => const ShareBottomSheet(),
-  );
-}
+  void _openShareSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const ShareBottomSheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-   final readableDate = timeAgo(widget.createdAt);
+    final readableDate = timeAgo(widget.createdAt);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
@@ -179,7 +176,6 @@ void _openShareSheet(BuildContext context) {
                 ],
               ),
               const PostOptionsMenu(),
-
             ],
           ),
 
@@ -231,57 +227,61 @@ void _openShareSheet(BuildContext context) {
 
           const SizedBox(height: 10),
 
-       Row(
-        children: [
-          _ActivIcon(
-            icon: 'assets/activicon/comment.svg',
-            count: widget.comment,
-            onTap: () => _openCommentsSheet(context, widget.postId),
+          Row(
+            children: [
+              _ActivIcon(
+                icon: 'assets/activicon/comment.svg',
+                count: widget.comment,
+                onTap: () => _openCommentsSheet(context, widget.postId),
+              ),
+              const SizedBox(width: 20),
+              RepostButton(count: widget.repost),
+              const SizedBox(width: 20),
+              LikeButton(
+                count: widget.like,
+                initialLiked: false, // or pass your backend like state
+              ),
+              const SizedBox(width: 20),
+              _ActivIcon(
+                icon: 'assets/activicon/activity.svg',
+                count: widget.poll,
+                onTap: () {},
+              ),
+              const Spacer(),
+              BookmarkButton(),
+              const SizedBox(width: 14),
+              _ActivIcon(
+                icon: 'assets/activicon/share.svg',
+                count: '',
+                onTap: () => _openShareSheet(context),
+              ),
+            ],
           ),
-          const SizedBox(width: 20),
-          RepostButton(count: widget.repost),
-          const SizedBox(width: 20),
-          LikeButton(
-            count: widget.like,
-            initialLiked: false, // or pass your backend like state
-          ),
-          const SizedBox(width: 20),
-          _ActivIcon(
-            icon: 'assets/activicon/activity.svg',
-            count: widget.poll,
-            onTap: () {},
-          ),
-          const Spacer(),
-          BookmarkButton(),
-          const SizedBox(width: 14),
-          _ActivIcon(
-            icon: 'assets/activicon/share.svg',
-            count: '',
-            onTap: () => _openShareSheet(context),
-          ),
-        ],
-      ),
-
-
         ],
       ),
     );
   }
 }
-  Icon _buildStatusIcon(String status) {
-    switch (status) {
-      case "Student":
-        return const Icon(Icons.school, size: 18, color: Color.fromARGB(255, 0, 4, 255));
-      case "Academic Staff":
-        return const Icon(Icons.star, size: 18, color: Colors.amber);
-      case "Non-Academic Staff":
-        return const Icon(Icons.work, size: 18, color: Colors.red);
-      case "Admin":
-        return const Icon(Icons.verified, size: 18, color: Colors.green);
-      default:
-        return const Icon(Icons.person, size: 18, color: Colors.grey);
-    }
+
+Icon _buildStatusIcon(String status) {
+  switch (status) {
+    case "Student":
+      return const Icon(
+        Icons.school,
+        size: 18,
+        color: Color.fromARGB(255, 0, 4, 255),
+      );
+    case "Academic Staff":
+      return const Icon(Icons.star, size: 18, color: Colors.amber);
+    case "Non-Academic Staff":
+      return const Icon(Icons.work, size: 18, color: Colors.red);
+    case "Admin":
+      return const Icon(Icons.verified, size: 18, color: Colors.green);
+    default:
+      return const Icon(Icons.person, size: 18, color: Colors.grey);
   }
+}
+
 String timeAgo(DateTime createdAt) {
   final now = DateTime.now();
   final diff = now.difference(createdAt);
@@ -298,8 +298,6 @@ String timeAgo(DateTime createdAt) {
     return "${diff.inDays} days ago";
   }
 }
-
-
 
 class _ActivIcon extends StatelessWidget {
   final String icon;
@@ -339,11 +337,7 @@ class LikeButton extends StatefulWidget {
   final String count;
   final bool initialLiked;
 
-  const LikeButton({
-    super.key,
-    required this.count,
-    this.initialLiked = false,
-  });
+  const LikeButton({super.key, required this.count, this.initialLiked = false});
 
   @override
   State<LikeButton> createState() => _LikeButtonState();
@@ -368,9 +362,7 @@ class _LikeButtonState extends State<LikeButton>
     _scaleAnimation = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 50),
       TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 50),
-    ]).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) _controller.reset();
@@ -401,7 +393,9 @@ class _LikeButtonState extends State<LikeButton>
               isLiked
                   ? 'assets/activicon/like-filled.svg'
                   : 'assets/activicon/like.svg',
-              color: isLiked ? Colors.red : const Color.fromARGB(255, 17, 17, 17),
+              color: isLiked
+                  ? Colors.red
+                  : const Color.fromARGB(255, 17, 17, 17),
               size: 18,
             ),
           ),
@@ -409,10 +403,7 @@ class _LikeButtonState extends State<LikeButton>
             const SizedBox(width: 6),
             Text(
               widget.count,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
             ),
           ],
         ],
@@ -446,9 +437,7 @@ class _BookmarkButtonState extends State<BookmarkButton>
     _scaleAnimation = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.4), weight: 50),
       TweenSequenceItem(tween: Tween(begin: 1.4, end: 1.0), weight: 50),
-    ]).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) _controller.reset();
@@ -479,7 +468,9 @@ class _BookmarkButtonState extends State<BookmarkButton>
           isBookmarked
               ? 'assets/activicon/bookmark-filled.svg'
               : 'assets/activicon/bookmark.svg',
-          color: isBookmarked ? const Color.fromARGB(255, 68, 68, 68) : const Color.fromARGB(255, 17, 17, 17),
+          color: isBookmarked
+              ? const Color.fromARGB(255, 68, 68, 68)
+              : const Color.fromARGB(255, 17, 17, 17),
           size: 18,
         ),
       ),

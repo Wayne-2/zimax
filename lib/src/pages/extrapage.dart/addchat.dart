@@ -179,6 +179,7 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
         children: [
           Text(
             user["fullname"] ?? "Unknown User",
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -191,7 +192,9 @@ class _AddChatPageState extends ConsumerState<AddChatPage> {
           const SizedBox(width: 4),
           Text(
             "Joined $readableDate",
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.poppins(
+
               fontSize: 12,
               color: Colors.grey,
               fontWeight: FontWeight.w500,

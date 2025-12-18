@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:uuid/uuid.dart';
+// import 'package:uuid/uuid.dart';
 import 'package:zimax/src/components/appdrawer.dart';
 import 'package:zimax/src/components/post_card.dart';
 import 'package:zimax/src/components/videotiles.dart';
@@ -92,7 +92,7 @@ class _HomeState extends ConsumerState<Home> {
             itemCount: posts.length,
             itemBuilder: (context, index) {
               final post = posts[index];
-              final postId = Uuid().v4();
+              final postId = post.id;
 
               final postCard = PostCard(
                 postId:postId ,
