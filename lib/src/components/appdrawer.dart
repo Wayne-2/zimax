@@ -35,7 +35,7 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
       child: SafeArea(
         child: Column(
           children: [
-            SizedBox(height: 10),
+            SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Row(

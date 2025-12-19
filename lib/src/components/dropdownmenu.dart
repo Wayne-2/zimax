@@ -62,7 +62,7 @@ class PostOptionsMenu extends StatelessWidget {
             text,
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w500,
-              fontSize: 13,
+              fontSize: 14,
               color: isDestructive ? Colors.red : const Color.fromARGB(255, 0, 0, 0),
             ),
           ),

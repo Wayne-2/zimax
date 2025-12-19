@@ -60,10 +60,7 @@ class _PostCardState extends State<PostCard> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
-        return CommentSheet(
-          postId: postId,
-          userId: user.id,
-        );
+        return CommentSheet(postId: postId, userId: user.id);
       },
     );
   }
@@ -80,6 +77,9 @@ class _PostCardState extends State<PostCard> {
   @override
   Widget build(BuildContext context) {
     final readableDate = timeAgo(widget.createdAt);
+    final hasContent = widget.postcontent.trim().isNotEmpty;
+    final hasImage = widget.imageUrl != null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -172,7 +172,9 @@ class _PostCardState extends State<PostCard> {
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
                                 child: Icon(
                                   Icons.circle,
                                   size: 3,
@@ -199,30 +201,25 @@ class _PostCardState extends State<PostCard> {
             ],
           ),
 
-          // const SizedBox(height: 12),
-
-          // Post Content
-          Padding(
-            padding: const EdgeInsets.only(top:8.0),
-            child: Text(
+          if (hasContent) ...[
+            const SizedBox(height: 4),
+            Text(
               widget.postcontent,
               style: GoogleFonts.poppins(
-                fontSize: 14,
-                height: 1.5,
+                fontSize: 15,
+                height: 1.4,
                 fontWeight: FontWeight.w400,
-                color: Colors.black87,
+                color: Colors.black,
                 letterSpacing: -0.1,
               ),
-              maxLines: 10,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
+          ],
 
-          // Post Image
-          if (widget.imageUrl != null) ...[
-            const SizedBox(height: 12),
+          // Post Image - with conditional spacing
+          if (hasImage) ...[
+            SizedBox(height: hasContent ? 12 : 10),
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               child: CachedNetworkImage(
                 height: 300,
                 width: double.infinity,
@@ -250,7 +247,8 @@ class _PostCardState extends State<PostCard> {
             ),
           ],
 
-          const SizedBox(height: 14),
+          // Actions Row - smart spacing
+          SizedBox(height: hasContent || hasImage ? 12 : 4),
 
           // Actions Row
           Row(
@@ -263,10 +261,7 @@ class _PostCardState extends State<PostCard> {
               const SizedBox(width: 24),
               RepostButton(count: widget.repost),
               const SizedBox(width: 24),
-              LikeButton(
-                count: widget.like,
-                initialLiked: false,
-              ),
+              LikeButton(count: widget.like, initialLiked: false),
               const SizedBox(width: 24),
               _ActivIcon(
                 icon: 'assets/activicon/activity.svg',
@@ -292,29 +287,13 @@ class _PostCardState extends State<PostCard> {
 Icon _buildStatusIcon(String status) {
   switch (status) {
     case "Student":
-      return const Icon(
-        Icons.school,
-        size: 16,
-        color: Color(0xFF2563EB),
-      );
+      return const Icon(Icons.school, size: 16, color: Color(0xFF2563EB));
     case "Academic Staff":
-      return const Icon(
-        Icons.star,
-        size: 16,
-        color: Color(0xFFF59E0B),
-      );
+      return const Icon(Icons.star, size: 16, color: Color(0xFFF59E0B));
     case "Non-Academic Staff":
-      return const Icon(
-        Icons.work,
-        size: 16,
-        color: Color(0xFFEF4444),
-      );
+      return const Icon(Icons.work, size: 16, color: Color(0xFFEF4444));
     case "Admin":
-      return const Icon(
-        Icons.verified,
-        size: 16,
-        color: Color(0xFF10B981),
-      );
+      return const Icon(Icons.verified, size: 16, color: Color(0xFF10B981));
     default:
       return const Icon(Icons.person, size: 16, color: Colors.grey);
   }
@@ -360,11 +339,7 @@ class _ActivIcon extends StatelessWidget {
       onTap: onTap,
       child: Row(
         children: [
-          SvgIcon(
-            icon,
-            color: Colors.grey.shade800,
-            size: 20,
-          ),
+          SvgIcon(icon, color: Colors.grey.shade800, size: 20),
           if (count.isNotEmpty) ...[
             const SizedBox(width: 6),
             Text(
