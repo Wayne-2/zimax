@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/appbar/profile.dart';
 import 'package:zimax/src/auth/signin.dart';
 import 'package:zimax/src/components/svgicon.dart';
+import 'package:zimax/src/pages/extrapage.dart/settings.dart';
 // import 'package:zimax/src/models/chat_item_hive.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
@@ -126,7 +127,12 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
             _buildMenuItem(
               icon: 'assets/appbaricon/settings.svg',
               label: "Settings",
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SettingsPage()),
+                );
+              },
             ),
             _buildMenuItem(
               icon: 'assets/appbaricon/notification.svg',

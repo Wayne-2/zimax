@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:zimax/src/auth/loadingpage.dart';
 import 'package:zimax/src/auth/signup.dart';
 import 'package:zimax/src/components/imaget.dart';
 import 'package:zimax/src/components/inputfield.dart';
+import 'package:zimax/src/components/navbar.dart';
 import 'package:zimax/src/models/userprofile.dart';
 import 'package:zimax/src/services/authservice.dart';
 import 'package:zimax/src/services/riverpod.dart';
@@ -68,7 +68,7 @@ void login() async {
       onConfirm: () {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const Loadingpage()),
+          MaterialPageRoute(builder: (context) => const NavBar()),
         );
       },
     );

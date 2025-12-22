@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:zimax/src/services/riverpod.dart';
 
-class ShareBottomSheet extends StatelessWidget {
+class ShareBottomSheet extends ConsumerStatefulWidget {
   const ShareBottomSheet({super.key});
+  
+  @override
+  ConsumerState<ShareBottomSheet> createState() => _ShareBottomSheetState();
+}
 
+class _ShareBottomSheetState extends ConsumerState<ShareBottomSheet> {
   @override
   Widget build(BuildContext context) {
+    final usersAsync = ref.watch(userServiceStreamProvider);
     return Container(
       height: MediaQuery.of(context).size.height * 0.65,
       decoration: const BoxDecoration(
@@ -31,7 +40,7 @@ class ShareBottomSheet extends StatelessWidget {
           /// Header
           Text(
             "Share",
-            style: GoogleFonts.inter(
+            style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -55,7 +64,7 @@ class ShareBottomSheet extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     "Search",
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.poppins(
                       fontSize: 14,
                       color: Colors.grey,
                     ),
@@ -70,16 +79,33 @@ class ShareBottomSheet extends StatelessWidget {
           /// Recent users
           SizedBox(
             height: 90,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: 10,
-              separatorBuilder: (_, _) => const SizedBox(width: 16),
-              itemBuilder: (_, index) {
-                return _UserBubble(
-                  username: "user$index",
-                  imageUrl:
-                      "https://i.pravatar.cc/150?img=${index + 1}",
+            child: usersAsync.when(
+              loading: () => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: SizedBox(
+                  height: 90,
+                  child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 5,
+                  itemBuilder: (_, _) => UserBubbleShimmer() 
+                ),
+                ),
+              ),
+              error: (e, _) => Center(
+                child: Text("Error: $e", style: GoogleFonts.poppins()),
+              ),
+              data: (users) {
+                return ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: users.length > 10 ? 10 : users.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 16),
+                  itemBuilder: (_, index) {
+                    return _UserBubble(
+                      username: users[index]['fullname']?? 'unknown user',
+                      imageUrl:users[index]["profile_image_url"] ?? "https://kldaeoljhumowuegwjyq.supabase.co/storage/v1/object/public/media/zimaxpfp.png",
+                    );
+                  },
                 );
               },
             ),
@@ -113,7 +139,6 @@ class ShareBottomSheet extends StatelessWidget {
   }
 }
 
-
 class _UserBubble extends StatelessWidget {
   final String username;
   final String imageUrl;
@@ -128,9 +153,10 @@ class _UserBubble extends StatelessWidget {
     return Column(
       children: [
         Stack(
+          clipBehavior: Clip.none,
           children: [
             CircleAvatar(
-              radius: 30,
+              radius: 26,
               backgroundImage: NetworkImage(imageUrl),
             ),
             Positioned(
@@ -139,12 +165,13 @@ class _UserBubble extends StatelessWidget {
               child: Container(
                 width: 20,
                 height: 20,
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
+                decoration: BoxDecoration(
+                  color: Colors.black,
                   shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1)
                 ),
                 child: const Icon(
-                  Icons.send,
+                  Icons.arrow_upward,
                   size: 12,
                   color: Colors.white,
                 ),
@@ -153,16 +180,20 @@ class _UserBubble extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        Text(
-          username,
-          style: GoogleFonts.inter(fontSize: 12),
-          overflow: TextOverflow.ellipsis,
+        SizedBox(
+          width: 54,
+          child: Center(
+            child: Text(
+              username,
+              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w400),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ),
       ],
     );
   }
 }
-
 
 class _ShareAction extends StatelessWidget {
   final IconData icon;
@@ -186,7 +217,7 @@ class _ShareAction extends StatelessWidget {
             const SizedBox(width: 16),
             Text(
               title,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.poppins(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
@@ -194,6 +225,56 @@ class _ShareAction extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class UserBubbleShimmer extends StatelessWidget {
+  const UserBubbleShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Shimmer.fromColors(
+          baseColor: Colors.grey.shade900,
+          highlightColor: Colors.grey.shade800,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const CircleAvatar(
+                radius: 26,
+                backgroundColor: Colors.white10,
+              ),
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    color: Colors.white10,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Shimmer.fromColors(
+          baseColor: Colors.grey.shade900,
+          highlightColor: Colors.grey.shade800,
+          child: Container(
+            width: 48,
+            height: 10,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
