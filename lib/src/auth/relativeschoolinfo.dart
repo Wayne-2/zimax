@@ -90,7 +90,12 @@ Future<void> _saveProfile() async {
         level: selectedLevelValue!,
         idNumber: _regNumberController.text.trim(),
         status: selectedStatusValue!,
-        pfp: noimg,
+        pfp: noimg, 
+        bio: 'No bios available', 
+        followerCount: 0, 
+        followingCount: 0, 
+        isPrivate: false,
+        
       );
 
       await profileService.createProfile(profile);

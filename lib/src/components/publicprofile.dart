@@ -1,15 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zimax/src/services/follow_service.dart';
+import 'package:zimax/src/services/riverpod.dart';
 
-class Publicprofile extends StatefulWidget {
-  const Publicprofile({super.key});
+class Publicprofile extends ConsumerStatefulWidget {
+  final String userId;
+  const Publicprofile({super.key, required this.userId});
 
-  @override
-  State<Publicprofile> createState() => _PublicprofileState();
+    Future<void> followOrRequest(String targetId, bool isPrivate) async {
+  final uid = Supabase.instance.client.auth.currentUser!.id;
+
+  if (isPrivate) {
+    await Supabase.instance.client.from('follow_requests').insert({
+      'requester_id': uid,
+      'target_id': targetId,
+    });
+  } else {
+    await Supabase.instance.client.from('follows').insert({
+      'follower_id': uid,
+      'following_id': targetId,
+    });
+  }
 }
 
-class _PublicprofileState extends State<Publicprofile> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+Future<void> unfollowUser(String targetId) async {
+  final uid = Supabase.instance.client.auth.currentUser!.id;
+
+  await Supabase.instance.client
+      .from('follows')
+      .delete()
+      .eq('follower_id', uid)
+      .eq('following_id', targetId);
+}
+
+
+  @override
+  ConsumerState<Publicprofile> createState() => _PublicprofileState();
+}
+
+class _PublicprofileState extends ConsumerState<Publicprofile>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
 
   @override
   void initState() {
@@ -23,252 +56,346 @@ class _PublicprofileState extends State<Publicprofile> with SingleTickerProvider
     super.dispose();
   }
 
+
+
+
   @override
   Widget build(BuildContext context) {
+    final userProfileAsync = ref.watch(publicUserProfileProvider(widget.userId));
+  
     return Scaffold(
       backgroundColor: Colors.white,
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            // Top section with back button and avatar
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 30, left: 20, right: 20, bottom: 20),
-                child: Column(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: userProfileAsync.when(
+          data: (user) => Text(
+            user.fullname.toLowerCase().replaceAll(" ", "_"),
+            style: GoogleFonts.poppins(
+              color: Colors.black,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          loading: () => const SizedBox(),
+          error: (_, __) => const SizedBox(),
+        ),
+        centerTitle: true,
+      ),
+      body: userProfileAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)),
+        error: (_, __) => _ErrorState(),
+        data: (user) => _ProfileView(user: user, tabController: _tabController),
+      ),
+    );
+  }
+}
+
+class _ProfileView extends StatelessWidget {
+  final dynamic user;
+  final TabController tabController;
+
+  const _ProfileView({required this.user, required this.tabController});
+
+  @override
+  Widget build(BuildContext context) {
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+                // Top Row: Avatar + Stats
+                Row(
                   children: [
-                    // Back button aligned to left
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.black),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Spacer(),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    // Centered avatar
                     CircleAvatar(
-                      radius: 50,
-                      backgroundImage: NetworkImage(
-                        'https://picsum.photos/200', // Replace with user's pfp
-                      ),
+                      radius: 45,
+                      backgroundColor: Colors.grey.shade100,
+                      backgroundImage: NetworkImage(user.pfp),
                     ),
-                    const SizedBox(height: 10),
-                    // Name
-                    Text(
-                      "ALEX RIVERA",
-                      style: GoogleFonts.poppins(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Username / Role
-                    Text(
-                      "@alex_dev • Developer",
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                        _ProfileStat(count: "0", label: "Posts"),
+                        _ProfileStat(count: "${user.followerCount}", label: "Followers"),
+                        _ProfileStat(count: "${user.followingCount}", label: "Following"),
+
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ),
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 16),
-                      // Bio
-                      Text(
-                        "Crafting digital experiences with Flutter. Minimalist by choice, developer by passion. Based in London.",
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: Colors.black87,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Followers / Following Section
-                      Row(
-                        children: [
-                          _buildStat("210", "Followers"),
-                          const SizedBox(width: 24),
-                          _buildStat("180", "Following"),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Action Buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: Text(
-                                "Follow",
-                                style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Container(
-                            height: 48,
-                            width: 48,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.black12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.mail_outline, color: Colors.black),
-                              onPressed: () {},
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                    ],
+                const SizedBox(height: 16),
+                // Name and Bio
+                Text(
+                  user.fullname,
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
+                Text(
+                  user.department,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  user.bio,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    height: 1.4,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final currentUserId =
+                              Supabase.instance.client.auth.currentUser!.id;
 
-                          // Sticky TabBar
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverAppBarDelegate(
-                TabBar(
-                  controller: _tabController,
-                  labelColor: Colors.black,
-                  unselectedLabelColor: Colors.grey.shade400,
-                  indicatorColor: Colors.black,
-                  indicatorWeight: 3,
-                  tabs: const [
-                    Tab(text: "Posts"),
-                    Tab(text: "Media"),
-                    Tab(text: "Links"),
+                          if (currentUserId == user.id) {
+                            return const SizedBox();
+                          }
+
+                          final isFollowing =
+                              ref.watch(followStatusProvider(user.id));
+                          final isRequested =
+                              ref.watch(followRequestProvider(user.id));
+
+                          return isFollowing.when(
+                            loading: () => _ActionButton(
+                              label: "Loading...",
+                              onPressed: () {},
+                              isPrimary: true,
+                            ),
+                            error: (_, __) => _ActionButton(
+                              label: "Error",
+                              onPressed: () {},
+                              isPrimary: true,
+                            ),
+                            data: (following) {
+                              if (following) {
+                                return _ActionButton(
+                                  label: "Following",
+                                  isPrimary: false,
+                                  onPressed: () async {
+                                    await FollowService.unfollow(user.id);
+                                    ref.invalidate(followStatusProvider(user.id));
+                                  },
+                                );
+                              }
+
+                              return isRequested.when(
+                                loading: () => _ActionButton(
+                                  label: "Loading...",
+                                  onPressed: () {},
+                                  isPrimary: true,
+                                ),
+                                error: (_, __) => _ActionButton(
+                                  label: "Error",
+                                  onPressed: () {},
+                                  isPrimary: true,
+                                ),
+                                data: (requested) => _ActionButton(
+                                label: requested ? "Requested" : "Follow",
+                                isPrimary: !requested,
+                                onPressed: requested 
+                                  ? null // This will disable the button
+                                  : () async {
+                                      await FollowService.followOrRequest(
+                                        user.id,
+                                        user.isPrivate,
+                                      );
+                                      ref.invalidate(followStatusProvider(user.id));
+                                      ref.invalidate(followRequestProvider(user.id));
+                                    },
+                              ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ActionButton(
+                        label: "Chat user",
+                        onPressed: () {},
+                        isPrimary: true,
+                      ),
+                    ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 24),
+              ],
             ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildPostList(),
-            const Center(child: Text("Gallery View")),
-            const Center(child: Text("External Links")),
-          ],
+          ),
+        ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _SliverTabDelegate(tabController),
+        ),
+      ],
+      body: TabBarView(
+        controller: tabController,
+        children: [
+          
+          const Center(child: Text("Posts")),
+          const Center(child: Text("Comments")),
+          _ImageGrid(userId: user.id),
+        ],
+      ),
+    );
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* COMPONENTS                                 */
+/* -------------------------------------------------------------------------- */
+
+class _ProfileStat extends StatelessWidget {
+  final String count;
+  final String label;
+  const _ProfileStat({required this.count, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          count,
+          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed; // Make nullable
+  final bool isPrimary;
+
+  const _ActionButton({
+    required this.label,
+    required this.onPressed,
+    required this.isPrimary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          backgroundColor: isPrimary ? Colors.black : Colors.grey.shade100,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isPrimary ? Colors.white : Colors.black,
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildPostList() {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      itemCount: 5,
-      itemBuilder: (context, index) => _buildPostItem(),
+class _ImageGrid extends StatelessWidget {
+  final String userId;
+  const _ImageGrid({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.only(top: 2),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+      ),
+      itemCount: 15, // Placeholder
+      itemBuilder: (context, index) => Container(
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.collections_outlined, color: Colors.white, size: 30),
+      ),
     );
   }
+}
 
-  Widget _buildPostItem() {
+class _SliverTabDelegate extends SliverPersistentHeaderDelegate {
+  final TabController controller;
+  _SliverTabDelegate(this.controller);
+
+  @override
+  double get minExtent => 45;
+  @override
+  double get maxExtent => 45;
+
+  @override
+  Widget build(_, __, ___) {
     return Container(
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 1)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "The beauty of black and white lies in its ability to strip away the noise and focus on the essence of the design.",
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              height: 1.4,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.favorite_border, size: 18),
-              const SizedBox(width: 5),
-              const Text("24", style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 25),
-              const Icon(Icons.mode_comment_outlined, size: 18),
-              const SizedBox(width: 5),
-              const Text("12", style: TextStyle(fontSize: 13)),
-              const Spacer(),
-              Icon(Icons.bookmark_border, size: 18, color: Colors.grey.shade400),
-            ],
-          ),
+      child: TabBar(
+        controller: controller,
+        indicatorColor: Colors.black,
+        indicatorWeight: 1.5,
+        labelColor: Colors.black,
+        unselectedLabelColor: Colors.grey.shade400,
+        tabs: [
+          Tab(text: 'Posts',),
+          Tab(text: 'Comments',),
+          Tab(text: 'Media',),
         ],
       ),
     );
   }
 
-  Widget _buildStat(String count, String label) {
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: [
-      Text(
-        count,
-        style: GoogleFonts.poppins(
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-        ),
-      ),
-      const SizedBox(width: 10),
-      Text(
-        label,
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          color: Colors.grey.shade600,
-        ),
-      ),
-    ],
-  );
+  @override
+  bool shouldRebuild(_) => false;
 }
 
-}
-
-class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar _tabBar;
-  _SliverAppBarDelegate(this._tabBar);
-
+class _ErrorState extends StatelessWidget {
   @override
-  double get minExtent => 48;
-  @override
-  double get maxExtent => 48;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text('Profile unavailable', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Go Back")),
+        ],
       ),
-      child: _tabBar,
     );
   }
-
-  @override
-  bool shouldRebuild(covariant _SliverAppBarDelegate oldDelegate) => false;
 }

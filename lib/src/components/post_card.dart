@@ -8,11 +8,13 @@ import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zimax/src/components/commentsheets.dart';
 import 'package:zimax/src/components/dropdownmenu.dart';
+import 'package:zimax/src/components/publicprofile.dart';
 import 'package:zimax/src/components/repostingbutton.dart';
 import 'package:zimax/src/components/sharebottomsheet.dart';
 import 'package:zimax/src/components/svgicon.dart';
 
 class PostCard extends StatefulWidget {
+  final String id;
   final String username;
   final String department;
   final String status;
@@ -28,6 +30,7 @@ class PostCard extends StatefulWidget {
 
   const PostCard({
     super.key,
+    required this.id,
     required this.username,
     required this.department,
     required this.status,
@@ -98,36 +101,41 @@ class _PostCardState extends State<PostCard> {
               Expanded(
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: CachedNetworkImage(
-                        imageUrl: widget.pfp,
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Shimmer.fromColors(
-                          baseColor: Colors.grey.shade300,
-                          highlightColor: Colors.grey.shade100,
-                          child: Container(
+                    GestureDetector(
+                      onTap:(){
+                        Navigator.push(context, MaterialPageRoute(builder: (context)=> Publicprofile(userId: widget.id,)));
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: CachedNetworkImage(
+                          imageUrl: widget.pfp,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Shimmer.fromColors(
+                            baseColor: Colors.grey.shade300,
+                            highlightColor: Colors.grey.shade100,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
+                              color: Colors.grey.shade200,
                             ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: Colors.grey.shade200,
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            color: Colors.grey,
-                            size: 20,
+                            child: const Icon(
+                              Icons.person,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ),

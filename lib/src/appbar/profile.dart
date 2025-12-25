@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:zimax/src/appbar/tabcontent.dart';
+import 'package:zimax/src/pages/extrapage.dart/edit_profile_page.dart';
+import 'package:zimax/src/pages/extrapage.dart/settings_page.dart';
 import 'package:zimax/src/services/riverpod.dart';
 
 class Profilepage extends ConsumerStatefulWidget {
@@ -34,12 +36,10 @@ class _ProfilepageState extends ConsumerState<Profilepage>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+        );
 
     _animationController.forward();
   }
@@ -58,6 +58,8 @@ class _ProfilepageState extends ConsumerState<Profilepage>
     final department = user.department;
     final level = user.level;
     final joinIn = user.createdAt;
+    final followers = user.followerCount;
+    final following = user.followingCount;
     final readable = DateFormat('MMM yyyy').format(joinIn!);
     final memberSince = DateTime.now().difference(joinIn).inDays ~/ 30;
 
@@ -73,13 +75,16 @@ class _ProfilepageState extends ConsumerState<Profilepage>
               backgroundColor: Colors.white,
               elevation: 0,
               flexibleSpace: FlexibleSpaceBar(
-                background: _buildHeader(user, readable, memberSince),
+                background: _buildHeader(user, readable, memberSince, followers, following),
               ),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.settings_outlined),
                   onPressed: () {
-                    // Navigate to settings
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => SettingsPage()),
+                    );
                   },
                 ),
               ],
@@ -93,11 +98,16 @@ class _ProfilepageState extends ConsumerState<Profilepage>
               opacity: _fadeAnimation,
               child: SlideTransition(
                 position: _slideAnimation,
-                child: _buildStatsCard(username, status, department, level, user.email),
+                child: _buildStatsCard(
+                  username,
+                  status,
+                  department,
+                  level,
+                  user.email,
+                  user.bio,
+                ),
               ),
             ),
-
-            const SizedBox(height: 8),
 
             // Tabs
             Expanded(
@@ -148,7 +158,7 @@ class _ProfilepageState extends ConsumerState<Profilepage>
     );
   }
 
-  Widget _buildHeader(user, String readable, int memberSince) {
+  Widget _buildHeader(user, String readable, int memberSince, follower, following) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -173,10 +183,7 @@ class _ProfilepageState extends ConsumerState<Profilepage>
         Positioned.fill(
           child: Opacity(
             opacity: 0.1,
-            child: Image.asset(
-              'assets/bgimg1.png',
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/bgimg1.png', fit: BoxFit.cover),
           ),
         ),
 
@@ -184,9 +191,7 @@ class _ProfilepageState extends ConsumerState<Profilepage>
         Positioned.fill(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-            child: Container(
-              color: Colors.black.withOpacity(0.2),
-            ),
+            child: Container(color: Colors.black.withOpacity(0.2)),
           ),
         ),
 
@@ -200,10 +205,7 @@ class _ProfilepageState extends ConsumerState<Profilepage>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [
-                  Colors.white.withOpacity(0.1),
-                  Colors.transparent,
-                ],
+                colors: [Colors.white.withOpacity(0.1), Colors.transparent],
               ),
             ),
           ),
@@ -218,10 +220,7 @@ class _ProfilepageState extends ConsumerState<Profilepage>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: RadialGradient(
-                colors: [
-                  Colors.white.withOpacity(0.08),
-                  Colors.transparent,
-                ],
+                colors: [Colors.white.withOpacity(0.08), Colors.transparent],
               ),
             ),
           ),
@@ -287,9 +286,9 @@ class _ProfilepageState extends ConsumerState<Profilepage>
                     children: [
                       Row(
                         children: [
-                          _buildQuickStat("200", "Followers"),
+                          _buildQuickStat('$follower', "Followers"),
                           const SizedBox(width: 20),
-                          _buildQuickStat("180", "Following"),
+                          _buildQuickStat('$following', "Following"),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -334,13 +333,18 @@ class _ProfilepageState extends ConsumerState<Profilepage>
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                      color: Colors.white,
+                    color: Colors.white,
                   ),
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
-                        // Navigate to edit profile
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const EditProfilePage(),
+                          ),
+                        );
                       },
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
@@ -396,12 +400,11 @@ class _ProfilepageState extends ConsumerState<Profilepage>
     String department,
     String level,
     String email,
+    String bio,
   ) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-      ),
+      decoration: BoxDecoration(color: Colors.white),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -431,6 +434,17 @@ class _ProfilepageState extends ConsumerState<Profilepage>
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '$bio ',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: const Color.fromARGB(255, 79, 79, 79),
+            ),
           ),
           const SizedBox(height: 16),
           Wrap(

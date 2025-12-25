@@ -117,6 +117,7 @@ class _HomeState extends ConsumerState<Home> {
                 final postId = post.id;
 
                 final postCard = PostCard(
+                  id: post.userId,
                   postId: postId,
                   username: post.username,
                   pfp: post.pfp,

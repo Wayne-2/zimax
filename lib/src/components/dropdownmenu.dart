@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart'
-    show BorderRadius, BuildContext, Color, Colors, EdgeInsets, MaterialPageRoute, Navigator, PopupMenuButton, PopupMenuDivider, PopupMenuItem, RoundedRectangleBorder, Row, SizedBox, StatelessWidget, Text, Widget;
+    show BorderRadius, BuildContext, Color, Colors, EdgeInsets, PopupMenuButton, PopupMenuDivider, PopupMenuItem, RoundedRectangleBorder, Row, SizedBox, StatelessWidget, Text, Widget;
 import 'package:google_fonts/google_fonts.dart';
-import 'package:zimax/src/components/publicprofile.dart';
+// import 'package:zimax/src/components/publicprofile.dart';
 
 class PostOptionsMenu extends StatelessWidget {
   const PostOptionsMenu({super.key});
@@ -19,7 +19,7 @@ class PostOptionsMenu extends StatelessWidget {
 
             break;
           case _PostMenuAction.profile:
-              Navigator.push(context, MaterialPageRoute(builder: (context)=> Publicprofile()));
+              // Navigator.push(context, MaterialPageRoute(builder: (context)=> Publicprofile()));
             break;
           case _PostMenuAction.report:
 

@@ -60,6 +60,7 @@ final userServiceStreamProvider = StreamProvider<List<Map<String, dynamic>>>((
             'fullname': e['fullname'] ?? '',
             'email': e['email'] ?? '',
             'status': e['status'] ?? '',
+            'bio': e['bio'] ?? 'No bio available',
             'profile_image_url': e['profile_image_url'] ?? '',
             'created_at': e['created_at'] ?? '',
           };
@@ -172,6 +173,7 @@ final isJoinedProvider = FutureProvider.family<bool, String>((ref, communityId) 
   return res != null;
 });
 
+final enableWebVisualEffectsProvider = StateProvider<bool>((ref) => false);
 
 final communityChatProvider = StateNotifierProvider.family<
     CommunityChatNotifier, ChatState, String>(
@@ -321,3 +323,60 @@ class CommunityChatNotifier extends StateNotifier<ChatState> {
     super.dispose();
   }
 }
+
+
+// public profile riverpod
+
+final publicUserProfileProvider =
+    StreamProvider.family<Userprofile, String>((ref, userId) {
+  final supabase = Supabase.instance.client;
+
+  final stream = supabase
+      .from('user_profile')
+      .stream(primaryKey: ['id'])
+      .eq('id', userId)
+      .map((rows) {
+        if (rows.isEmpty) {
+          throw Exception('User profile not found');
+        }
+        return Userprofile.fromJson(rows.first);
+      });
+
+  ref.onDispose(() {
+    // Stream automatically closed by Supabase
+  });
+
+  return stream;
+});
+
+
+// followers provider 
+final followStatusProvider =
+    FutureProvider.family<bool, String>((ref, targetId) async {
+  final uid = Supabase.instance.client.auth.currentUser!.id;
+
+  final res = await Supabase.instance.client
+      .from('follows')
+      .select('id')
+      .eq('follower_id', uid)
+      .eq('following_id', targetId)
+      .maybeSingle();
+
+  return res != null;
+});
+
+// for private accounts
+
+final followRequestProvider =
+    FutureProvider.family<bool, String>((ref, targetId) async {
+  final uid = Supabase.instance.client.auth.currentUser!.id;
+
+  final res = await Supabase.instance.client
+      .from('follow_requests')
+      .select('id')
+      .eq('requester_id', uid)
+      .eq('target_id', targetId)
+      .maybeSingle();
+
+  return res != null;
+});
