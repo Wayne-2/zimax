@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:zimax/src/appbar/profile.dart';
 import 'package:zimax/src/components/appdrawer.dart';
 import 'package:zimax/src/components/post_card.dart';
 import 'package:zimax/src/components/videotiles.dart';
@@ -58,13 +59,18 @@ class _HomeState extends ConsumerState<Home> {
           style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
         ),
         actions: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: CachedNetworkImage(
-              imageUrl: user!.pfp,
-              width: 30,
-              height: 30,
-              fit: BoxFit.cover,
+          GestureDetector(
+            onTap:() {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => Profilepage()));
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: CachedNetworkImage(
+                imageUrl: user!.pfp,
+                width: 30,
+                height: 30,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 15),

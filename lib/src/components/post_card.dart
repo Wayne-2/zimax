@@ -214,7 +214,7 @@ class _PostCardState extends State<PostCard> {
             Text(
               widget.postcontent,
               style: GoogleFonts.poppins(
-                fontSize: 15,
+                fontSize: 14,
                 height: 1.4,
                 fontWeight: FontWeight.w400,
                 color: Colors.black,
