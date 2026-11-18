@@ -748,11 +748,14 @@ ul { list-style: none; }
   .hero-subtitle { font-size: 16px; }
   .hero-visual {
     position: relative;
-    right: auto;
+    left: 0;
+    right: 0;
     bottom: auto;
     transform: none;
     width: 180px;
-    margin: 44px auto 0;
+    margin: 64px auto 0;
+    display: flex;
+    justify-content: center;
   }
   .float-tag { font-size: 10px; padding: 6px 9px; gap: 5px; }
   .float-tag svg { width: 12px; height: 12px; }
@@ -762,41 +765,24 @@ ul { list-style: none; }
   .tag-trending    { top: 40%;  left: -18%; }
 
   .entry-points, .two-up, .one-goal { padding: 56px 0 60px; }
-  .light-lead { font-size: 16px; }
+  .entry-points { text-align: left; }
+  .light-lead { font-size: 16px; margin-left: 0; margin-right: 0; }
   .tree { margin-top: 32px; max-width: 340px; text-align: left; position: relative; }
-  .tree::before {
-    content: "Home";
-    display: inline-block;
-    background: #fff;
-    color: #111;
-    border-radius: 9px;
-    padding: 12px 30px;
-    font-size: 18px;
-    font-weight: 700;
-  }
-  .tree::after {
-    content: "";
-    position: absolute;
-    left: 7px;
-    top: 47px;
-    height: 20px;
-    width: 1px;
-    background: #3d3d3d;
-  }
+  .tree::before, .tree::after { display: none; }
   .tree-node { font-size: 20px; padding: 14px 32px; }
   .tree-branches { display: none; }
   .tree-children {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin: 20px 0 0 20px;
+    margin: 0 0 0 20px;
     position: relative;
   }
   .tree-children::before {
     content: "";
     position: absolute;
     left: -13px;
-    top: -20px;
+    top: 0;
     bottom: 28px;
     width: 1px;
     background: #3d3d3d;
@@ -844,7 +830,22 @@ ul { list-style: none; }
   }
   .cards-row::-webkit-scrollbar { display: none; }
   .cards-row .mock { flex: 0 0 300px; width: 300px; scroll-snap-align: start; }
-  .connector-arrow { display: grid; flex: 0 0 36px; width: 36px; height: 36px; transform: rotate(90deg); }
+  .connector-arrow {
+    display: grid;
+    place-items: center;
+    flex: 0 0 36px;
+    width: 36px; height: 36px;
+    padding: 0;
+    font-size: 0;
+    transform: none;
+  }
+  .connector-arrow::after {
+    content: "";
+    width: 8px; height: 8px;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
   .bridge { height: 40px; }
 
   .goal-grid { grid-template-columns: 1fr; justify-items: center; }
