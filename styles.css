@@ -729,8 +729,9 @@ ul { list-style: none; }
 
   .container { padding: 0 24px; }
   .hero {
-    min-height: 680px;
-    padding: 140px 0 130px;
+    display: block;
+    min-height: 0;
+    padding: 132px 0 56px;
     background-position: center top;
     background-image:
       linear-gradient(to bottom,
@@ -745,7 +746,14 @@ ul { list-style: none; }
   .hero-inner { padding: 0 24px; }
   .hero-title { font-size: clamp(36px, 9vw, 48px); }
   .hero-subtitle { font-size: 16px; }
-  .hero-visual { right: 50%; transform: translateX(50%); bottom: -110px; width: 190px; }
+  .hero-visual {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    transform: none;
+    width: 180px;
+    margin: 44px auto 0;
+  }
   .float-tag { font-size: 10px; padding: 6px 9px; gap: 5px; }
   .float-tag svg { width: 12px; height: 12px; }
   .tag-messaging   { top: 4%;   right: -12%; }
@@ -755,17 +763,88 @@ ul { list-style: none; }
 
   .entry-points, .two-up, .one-goal { padding: 56px 0 60px; }
   .light-lead { font-size: 16px; }
-  .tree { margin-top: 36px; }
-  .tree-node { font-size: 22px; padding: 18px 44px; }
-  .tree-card { padding: 18px; }
-  .tree-card h3 { font-size: 20px; margin-top: 30px; }
-  .tree-card p { font-size: 14px; }
+  .tree { margin-top: 32px; max-width: 340px; text-align: left; position: relative; }
+  .tree::before {
+    content: "Home";
+    display: inline-block;
+    background: #fff;
+    color: #111;
+    border-radius: 9px;
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .tree::after {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 47px;
+    height: 20px;
+    width: 1px;
+    background: #3d3d3d;
+  }
+  .tree-node { font-size: 20px; padding: 14px 32px; }
+  .tree-branches { display: none; }
+  .tree-children {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0 0 20px;
+    position: relative;
+  }
+  .tree-children::before {
+    content: "";
+    position: absolute;
+    left: -13px;
+    top: -20px;
+    bottom: 28px;
+    width: 1px;
+    background: #3d3d3d;
+  }
+  .tree-card { position: relative; padding: 14px 16px; }
+  .tree-card::before {
+    content: "";
+    position: absolute;
+    left: -13px;
+    top: 26px;
+    width: 13px;
+    height: 1px;
+    background: #3d3d3d;
+  }
+  .tree-card::after {
+    content: "";
+    position: absolute;
+    left: -15px;
+    top: 23px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #6a6a6a;
+  }
+  .skeleton-lines i { height: 6px; margin-bottom: 7px; }
+  .tree-card h3 { font-size: 18px; margin-top: 16px; }
+  .tree-card p { font-size: 13px; }
   .lead-muted, .lead-dark, .goal-lead { font-size: 16px; }
   .goal-title { font-size: clamp(36px, 9vw, 48px); }
 
-  .cards-row { flex-direction: column; align-items: center; gap: 18px; margin-top: 40px; }
-  .cards-row .mock { flex: 0 1 300px; width: 100%; }
-  .connector-arrow { transform: rotate(90deg); }
+  .two-up { overflow: hidden; }
+  .cards-row {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 12px;
+    margin: 32px -24px 0;
+    padding: 4px 24px 18px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cards-row::-webkit-scrollbar { display: none; }
+  .cards-row .mock { flex: 0 0 300px; width: 300px; scroll-snap-align: start; }
+  .connector-arrow { display: grid; flex: 0 0 36px; width: 36px; height: 36px; transform: rotate(90deg); }
   .bridge { height: 40px; }
 
   .goal-grid { grid-template-columns: 1fr; justify-items: center; }
@@ -846,7 +925,15 @@ ul { list-style: none; }
 @media (max-width: 680px) {
   .cta-section { padding: 60px 0 32px; }
   .cta-text { font-size: 16px; }
-  .cta-visual { right: -90px; top: 70px; width: 250px; height: 250px; opacity: .45; }
+  .cta-visual {
+    position: relative;
+    right: auto;
+    top: auto;
+    width: 240px;
+    height: 240px;
+    margin: 36px auto 0;
+    opacity: 1;
+  }
   .cta-bottom { justify-content: space-between; gap: 10px; }
   .cta-hint { font-size: 10px; max-width: 110px; }
   .btn-green, .btn-ghost, .btn-whatsapp { padding: 12px 18px; font-size: 13px; }
