@@ -137,7 +137,7 @@ if (sphere && !prefersReduced) {
 
   function drawSphere() {
     ctx.clearRect(0, 0, width, height);
-    rotY += 0.0016 + (targetY - rotY) * 0.035;
+    rotY += 0.0024 + (targetY - rotY) * 0.035;
     rotX += (targetX - rotX) * 0.035;
     const cosY = Math.cos(rotY);
     const sinY = Math.sin(rotY);

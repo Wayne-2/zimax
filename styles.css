@@ -844,7 +844,7 @@ ul { list-style: none; }
     width: 8px; height: 8px;
     border-right: 2px solid #fff;
     border-bottom: 2px solid #fff;
-    transform: rotate(45deg) translate(-1px, -1px);
+    transform: rotate(-45deg) translate(1px, -1px);
   }
   .bridge { height: 40px; }
 
@@ -935,6 +935,8 @@ ul { list-style: none; }
     margin: 36px auto 0;
     opacity: 1;
   }
+  #particle-sphere { animation: globeSpin 40s linear infinite; }
+  @keyframes globeSpin { to { transform: rotate(360deg); } }
   .cta-bottom { justify-content: space-between; gap: 10px; }
   .cta-hint { font-size: 10px; max-width: 110px; }
   .btn-green, .btn-ghost, .btn-whatsapp { padding: 12px 18px; font-size: 13px; }
