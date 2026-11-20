@@ -257,8 +257,16 @@ ul { list-style: none; }
   gap: 18px;
   margin-top: 48px;
 }
-.cards-row .mock { flex: 0 0 300px; }
+.cards-row .mock { flex: 0 0 280px; }
 .mock { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.template-card { width: 280px; }
+.template-card img {
+  width: 100%;
+  height: auto;
+  border-radius: 22px;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, .10);
+}
+.template-card .mock-caption { text-align: center; }
 
 .app-card {
   width: 300px;
@@ -587,13 +595,14 @@ ul { list-style: none; }
 }
 
 .space-phone {
-  background: #f8f6fc;
+  background: transparent;
   border-radius: 26px;
   padding: 0;
   gap: 0;
-  height: 540px;
+  height: auto;
   overflow: hidden;
 }
+.space-phone img { width: 100%; height: auto; border-radius: 26px; }
 .space-header {
   background: #fff;
   padding: 15px 16px;
@@ -829,23 +838,17 @@ ul { list-style: none; }
     -webkit-overflow-scrolling: touch;
   }
   .cards-row::-webkit-scrollbar { display: none; }
-  .cards-row .mock { flex: 0 0 300px; width: 300px; scroll-snap-align: start; }
+  .cards-row .mock { flex: 0 0 260px; width: 260px; scroll-snap-align: start; }
   .connector-arrow {
     display: grid;
     place-items: center;
     flex: 0 0 36px;
     width: 36px; height: 36px;
     padding: 0;
-    font-size: 0;
+    font-size: 18px;
     transform: none;
   }
-  .connector-arrow::after {
-    content: "";
-    width: 8px; height: 8px;
-    border-right: 2px solid #fff;
-    border-bottom: 2px solid #fff;
-    transform: rotate(-45deg) translate(1px, -1px);
-  }
+  .connector-arrow::after { content: none; }
   .bridge { height: 40px; }
 
   .goal-grid { grid-template-columns: 1fr; justify-items: center; }
